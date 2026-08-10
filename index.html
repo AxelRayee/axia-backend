@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AxIA — Trouvez la meilleure affaire</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#0b0c0e;
@@ -51,7 +52,7 @@
 
   .hero{
     text-align:center;
-    padding:96px 24px 64px;
+    padding:80px 24px 56px;
     max-width:760px;
     margin:0 auto;
   }
@@ -64,274 +65,181 @@
     letter-spacing:0.01em;
   }
   h1{
-    font-size:56px; font-weight:700; letter-spacing:-0.03em;
+    font-size:52px; font-weight:700; letter-spacing:-0.03em;
     margin:0 0 16px;
     line-height:1.05;
   }
   .hero p{
-    font-size:20px; color:var(--ink-soft);
+    font-size:19px; color:var(--ink-soft);
     margin:0 auto; max-width:560px;
   }
 
   .input-card{
     max-width:720px;
-    margin:40px auto 0;
+    margin:36px auto 0;
     background:var(--bg-elevated);
     border:1px solid var(--line);
     border-radius:var(--radius);
     padding:28px;
   }
-  .input-row{
-    display:flex; gap:12px;
-  }
+  .input-row{ display:flex; gap:12px; }
   .input-row textarea{
-    flex:1;
-    resize:none;
-    border:none;
-    border-radius:var(--radius-sm);
-    padding:16px 18px;
-    font-size:16px;
-    font-family:inherit;
-    background:var(--bg-soft);
-    color:var(--ink);
+    flex:1; resize:none; border:none; border-radius:var(--radius-sm);
+    padding:16px 18px; font-size:16px; font-family:inherit;
+    background:var(--bg-soft); color:var(--ink);
     box-shadow: inset 0 0 0 1px var(--line);
-    min-height:52px;
-    max-height:120px;
+    min-height:52px; max-height:120px;
   }
   .input-row textarea::placeholder{color:var(--ink-soft);}
-  .input-row textarea:focus{
-    outline:none;
-    box-shadow: inset 0 0 0 2px var(--gold);
-  }
+  .input-row textarea:focus{ outline:none; box-shadow: inset 0 0 0 2px var(--gold); }
   .btn-primary{
-    background:var(--gold);
-    color:#171410;
-    border:none;
-    border-radius:var(--radius-sm);
-    padding:0 26px;
-    font-size:16px;
-    font-weight:700;
-    cursor:pointer;
-    transition:filter .15s ease;
-    white-space:nowrap;
+    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
+    padding:0 26px; font-size:16px; font-weight:700; cursor:pointer;
+    transition:filter .15s ease; white-space:nowrap;
   }
   .btn-primary:hover{filter:brightness(1.1);}
   .btn-primary:disabled{opacity:0.6; cursor:not-allowed;}
-  .input-hint{
-    font-size:13px; color:var(--ink-soft); margin-top:12px; padding-left:2px;
-  }
+  .input-hint{ font-size:13px; color:var(--ink-soft); margin-top:12px; padding-left:2px; }
 
-  .section{
-    max-width:1180px;
-    margin:0 auto;
-    padding:64px 24px 24px;
-  }
+  .section{ max-width:1400px; margin:0 auto; padding:56px 24px 24px; }
   .section-head{
-    display:flex; align-items:baseline; justify-content:space-between;
-    margin-bottom:24px; flex-wrap:wrap; gap:12px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:20px; flex-wrap:wrap; gap:12px;
   }
-  .section-head h2{
-    font-size:28px; font-weight:700; letter-spacing:-0.02em; margin:0;
-  }
-  .section-head .count{color:var(--ink-soft); font-size:15px;}
+  .section-head h2{ font-size:26px; font-weight:700; letter-spacing:-0.02em; margin:0; }
+  .section-head .count{color:var(--ink-soft); font-size:14px;}
 
-  .filters{
-    display:flex; gap:10px; flex-wrap:wrap;
-    margin-bottom:32px;
+  .view-toggle{
+    display:flex; gap:4px; background:var(--bg-elevated);
+    border:1px solid var(--line); border-radius:999px; padding:4px;
   }
+  .view-toggle button{
+    border:none; background:transparent; color:var(--ink-soft);
+    padding:7px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .view-toggle button.active{ background:var(--gold); color:#171410; }
+
+  .export-btn{
+    background:var(--bg-elevated); border:1px solid var(--line); color:var(--ink);
+    padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .export-btn:hover{ border-color:var(--gold); color:var(--gold); }
+
+  .toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+  .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
   .filter-chip{
-    background:var(--bg-elevated);
-    border:1px solid var(--line);
-    border-radius:999px;
-    padding:9px 16px;
-    font-size:14px;
-    color:var(--ink);
-    cursor:pointer;
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:999px;
+    padding:9px 16px; font-size:14px; color:var(--ink); cursor:pointer;
     display:flex; align-items:center; gap:6px;
   }
-  .filter-chip select{
-    border:none; background:transparent; font:inherit; color:inherit; cursor:pointer;
-  }
+  .filter-chip select{ border:none; background:transparent; font:inherit; color:inherit; cursor:pointer; }
   .filter-chip select:focus{outline:none;}
   .filter-chip option{background:var(--bg-elevated); color:var(--ink);}
 
-  .grid{
-    display:grid;
-    grid-template-columns:repeat(3, 1fr);
-    gap:20px;
-  }
+  /* ===== VUE CARTES ===== */
+  .grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
   @media (max-width: 980px){ .grid{grid-template-columns:repeat(2,1fr);} }
-  @media (max-width: 680px){ .grid{grid-template-columns:1fr;} h1{font-size:38px;} .input-row{flex-direction:column;} .btn-primary{padding:14px;} }
+  @media (max-width: 680px){ .grid{grid-template-columns:1fr;} h1{font-size:36px;} .input-row{flex-direction:column;} .btn-primary{padding:14px;} }
 
   .card{
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    overflow:hidden;
-    background:var(--bg-elevated);
-    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-    cursor:pointer;
+    border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+    background:var(--bg-elevated); transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   }
-  .card:hover{
-    transform:translateY(-3px);
-    border-color:rgba(201,162,74,0.35);
-    box-shadow:0 16px 32px rgba(0,0,0,0.4);
-  }
-  .card-photo{
-    height:140px;
-    background:linear-gradient(135deg,#26292d,#1a1c1f);
-    background-size:cover;
-    background-position:center;
-    position:relative;
-  }
+  .card:hover{ transform:translateY(-3px); border-color:rgba(201,162,74,0.35); box-shadow:0 16px 32px rgba(0,0,0,0.4); }
+  .card-photo{ height:140px; background:linear-gradient(135deg,#26292d,#1a1c1f); background-size:cover; background-position:center; position:relative; }
   .card-badge{
-    position:absolute; top:12px; left:12px;
-    background:rgba(11,12,14,0.7);
-    backdrop-filter:blur(6px);
-    font-size:12px; font-weight:600;
-    padding:5px 10px; border-radius:999px;
-    border:1px solid var(--line);
+    position:absolute; top:12px; left:12px; background:rgba(11,12,14,0.7); backdrop-filter:blur(6px);
+    font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; border:1px solid var(--line);
   }
+  .photo-source{ top:44px; }
   .delete-btn{
-    position:absolute; top:12px; right:12px;
-    width:26px; height:26px;
-    border-radius:50%;
-    border:1px solid var(--line);
-    background:rgba(11,12,14,0.7);
-    backdrop-filter:blur(6px);
-    color:var(--ink-soft);
-    font-size:13px;
-    cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-    transition:background .15s ease, color .15s ease;
+    position:absolute; top:12px; right:12px; width:26px; height:26px; border-radius:50%;
+    border:1px solid var(--line); background:rgba(11,12,14,0.7); backdrop-filter:blur(6px);
+    color:var(--ink-soft); font-size:13px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:background .15s ease, color .15s ease;
   }
-  .delete-btn:hover{
-    background:var(--red-soft);
-    color:var(--red);
-  }
-  .photo-source{
-    top:44px;
-  }
+  .delete-btn:hover{ background:var(--red-soft); color:var(--red); }
   .card-body{padding:18px 20px 20px;}
   .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
   .card-price{font-size:22px; font-weight:700; letter-spacing:-0.01em;}
   .card-city{font-size:14px; color:var(--ink-soft); margin-top:2px;}
-
-  .score-ring{
-    width:44px; height:44px; flex-shrink:0;
-  }
-  .score-ring text{
-    font-size:13px; font-weight:700; fill:var(--ink);
-  }
-
-  .card-metrics{
-    display:flex; gap:16px; margin-top:16px;
-    padding-top:16px; border-top:1px solid var(--line);
-  }
+  .score-ring{ width:44px; height:44px; flex-shrink:0; }
+  .score-ring text{ font-size:13px; font-weight:700; fill:var(--ink); }
+  .card-metrics{ display:flex; gap:16px; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
   .metric{flex:1;}
   .metric .label{font-size:12px; color:var(--ink-soft); margin-bottom:3px;}
   .metric .value{font-size:15px; font-weight:600;}
 
-  .market-block{
-    margin-top:16px;
-    padding-top:16px;
-    border-top:1px solid var(--line);
-  }
-  .market-label{
-    display:flex; justify-content:space-between; align-items:center;
-    font-size:12px; color:var(--ink-soft); margin-bottom:8px;
-  }
+  .market-block{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+  .market-label{ display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
   .market-label b{color:var(--market); font-weight:600;}
-  .market-track{
-    position:relative;
-    height:6px;
-    border-radius:999px;
-    background:linear-gradient(90deg, var(--market-soft), var(--market-soft));
-    border:1px solid var(--line);
-  }
-  .market-avg{
-    position:absolute; top:-4px;
-    width:2px; height:14px;
-    background:var(--ink-soft);
-  }
-  .market-pin{
-    position:absolute; top:-5px;
-    width:14px; height:14px;
-    border-radius:50%;
-    border:2px solid var(--bg-elevated);
-    transform:translateX(-50%);
-  }
-  .market-caption{
-    font-size:12.5px; margin-top:9px; color:var(--ink-soft);
-  }
+  .market-track{ position:relative; height:6px; border-radius:999px; background:var(--market-soft); border:1px solid var(--line); }
+  .market-avg{ position:absolute; top:-4px; width:2px; height:14px; background:var(--ink-soft); }
+  .market-pin{ position:absolute; top:-5px; width:14px; height:14px; border-radius:50%; border:2px solid var(--bg-elevated); transform:translateX(-50%); }
+  .market-caption{ font-size:12.5px; margin-top:9px; color:var(--ink-soft); }
   .market-caption b{font-weight:600;}
 
-  .rent-block{
-    margin-top:16px;
-    padding-top:16px;
-    border-top:1px solid var(--line);
-  }
-  .rent-label{
-    font-size:12px; color:var(--ink-soft); margin-bottom:8px;
-    display:flex; align-items:center; gap:8px;
-  }
-  .rent-badge{
-    font-size:11px; font-weight:600;
-    padding:2px 8px; border-radius:999px;
-  }
+  .rent-block{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
+  .rent-label{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+  .rent-badge{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
   .rent-badge.estimated{background:var(--market-soft); color:var(--market);}
   .rent-badge.corrected{background:var(--gold-soft); color:var(--gold);}
-  .rent-edit{
-    display:flex; gap:8px;
-  }
+  .rent-edit{ display:flex; gap:8px; }
   .rent-input{
-    flex:1;
-    background:var(--bg-soft);
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:8px 10px;
-    font-size:14px;
-    color:var(--ink);
-    font-family:inherit;
+    flex:1; background:var(--bg-soft); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:14px; color:var(--ink); font-family:inherit;
   }
-  .rent-input:focus{
-    outline:none;
-    border-color:var(--gold);
-  }
+  .rent-input:focus{ outline:none; border-color:var(--gold); }
   .rent-save{
-    background:var(--bg-soft);
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:0 14px;
-    color:var(--ink);
-    font-size:13px;
-    font-weight:600;
-    cursor:pointer;
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:8px; padding:0 14px;
+    color:var(--ink); font-size:13px; font-weight:600; cursor:pointer;
   }
   .rent-save:hover{border-color:var(--gold); color:var(--gold);}
 
-  .error-msg{
-    background:var(--red-soft);
-    color:var(--red);
-    padding:12px 16px;
-    border-radius:var(--radius-sm);
-    font-size:14px;
-    margin-top:12px;
-  }
-  .success-msg{
-    background:var(--green-soft);
-    color:var(--green);
-    padding:12px 16px;
-    border-radius:var(--radius-sm);
-    font-size:14px;
-    margin-top:12px;
+  .card-footer-link{
+    display:block; margin-top:14px; font-size:12.5px; color:var(--gold);
+    text-decoration:underline; text-underline-offset:2px;
   }
 
-  footer{
-    text-align:center;
-    padding:48px 24px 64px;
-    color:var(--ink-soft);
-    font-size:13px;
+  /* ===== VUE TABLEAU ===== */
+  .table-wrap{
+    border:1px solid var(--line); border-radius:var(--radius); overflow:auto;
+    background:var(--bg-elevated); max-height:70vh;
   }
+  table.data-table{ border-collapse:collapse; width:100%; font-size:13px; white-space:nowrap; }
+  table.data-table th, table.data-table td{
+    padding:10px 12px; border-bottom:1px solid var(--line); text-align:left;
+  }
+  table.data-table thead th{
+    position:sticky; top:0; background:#1a1c1f; color:var(--ink-soft);
+    font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em;
+    z-index:2; border-bottom:1px solid var(--line);
+  }
+  table.data-table td:first-child, table.data-table th:first-child{
+    position:sticky; left:0; background:#1a1c1f; z-index:1; min-width:180px;
+  }
+  table.data-table tbody tr:hover td{ background:rgba(255,255,255,0.03); }
+  table.data-table tbody tr:hover td:first-child{ background:#202326; }
+  .table-input{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
+    padding:5px 7px; font-size:13px; color:var(--ink); font-family:inherit;
+  }
+  .table-input:focus{ outline:none; border-color:var(--gold); }
+  .col-computed{ color:var(--ink-soft); }
+  .col-score{ font-weight:700; }
+  .table-link{ color:var(--gold); text-decoration:underline; font-size:12.5px; }
+  .table-delete{
+    background:transparent; border:1px solid var(--line); color:var(--ink-soft);
+    border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px;
+  }
+  .table-delete:hover{ border-color:var(--red); color:var(--red); }
+  tfoot td{ font-weight:700; background:#1a1c1f; border-top:2px solid var(--line); position:sticky; bottom:0; }
+
+  .error-msg{ background:var(--red-soft); color:var(--red); padding:12px 16px; border-radius:var(--radius-sm); font-size:14px; margin-top:12px; }
+  .success-msg{ background:var(--green-soft); color:var(--green); padding:12px 16px; border-radius:var(--radius-sm); font-size:14px; margin-top:12px; }
+
+  footer{ text-align:center; padding:48px 24px 64px; color:var(--ink-soft); font-size:13px; }
 </style>
 </head>
 <body>
@@ -346,9 +254,9 @@
 </nav>
 
 <div class="hero">
-  <span class="eyebrow">Prototype — connecté au backend</span>
+  <span class="eyebrow">IA + données officielles (DVF, ANIL)</span>
   <h1>Repérez la bonne affaire,<br>pas la bonne annonce.</h1>
-  <p>Collez le lien d'une annonce. AxIA l'analyse, la compare au marché réel de son secteur et calcule sa rentabilité.</p>
+  <p>Collez le lien d'une annonce. AxIA l'analyse, la compare au marché réel de son secteur et calcule sa rentabilité complète.</p>
 
   <div class="input-card">
     <div class="input-row">
@@ -363,15 +271,20 @@
 <div class="section">
   <div class="section-head">
     <h2>Vos analyses</h2>
-    <span class="count" id="countLabel">0 annonces analysées</span>
+    <div class="toolbar">
+      <span class="count" id="countLabel">0 analyses</span>
+      <div class="view-toggle">
+        <button id="btnViewCards" class="active" onclick="setView('cards')">Cartes</button>
+        <button id="btnViewTable" onclick="setView('table')">Tableau</button>
+      </div>
+      <button class="export-btn" onclick="exportExcel()">⬇ Exporter en Excel</button>
+    </div>
   </div>
 
   <div class="filters">
     <div class="filter-chip">
       Ville
-      <select id="filterVille" onchange="applyFilters()">
-        <option value="">Toutes</option>
-      </select>
+      <select id="filterVille" onchange="applyFilters()"><option value="">Toutes</option></select>
     </div>
     <div class="filter-chip">
       Rendement min.
@@ -407,7 +320,7 @@
       <select id="filterTri" onchange="applyFilters()">
         <option value="recent">Plus récent</option>
         <option value="score">Meilleur score</option>
-        <option value="rendement">Rendement décroissant</option>
+        <option value="rendement">Rendement net décroissant</option>
         <option value="prix_asc">Prix croissant</option>
         <option value="prix_desc">Prix décroissant</option>
       </select>
@@ -415,12 +328,24 @@
   </div>
 
   <div class="grid" id="cardGrid"></div>
+  <div class="table-wrap" id="tableWrap" style="display:none;"></div>
 </div>
 
-<footer>AxIA — backend en direct. Comparaison marché basée sur DVF (data.gouv.fr).</footer>
+<footer>AxIA — comparaison marché DVF (Cerema, data.gouv.fr), loyers ANIL (Carte des loyers), taux de crédit indicatif (moyenne nationale 25 ans, août 2026).</footer>
 
 <script>
 let listings = [];
+let currentView = 'cards';
+let lastDisplayed = [];
+
+function setView(view){
+  currentView = view;
+  document.getElementById('btnViewCards').classList.toggle('active', view === 'cards');
+  document.getElementById('btnViewTable').classList.toggle('active', view === 'table');
+  document.getElementById('cardGrid').style.display = view === 'cards' ? 'grid' : 'none';
+  document.getElementById('tableWrap').style.display = view === 'table' ? 'block' : 'none';
+  applyFilters();
+}
 
 function scoreColor(score){
   if(score >= 75) return "#4caf74";
@@ -443,22 +368,24 @@ function ring(score){
 }
 
 function currency(n){
-  return Math.round(n).toLocaleString('fr-FR') + ' €';
+  return Math.round(n || 0).toLocaleString('fr-FR') + ' €';
+}
+function pct(n){
+  return (n === null || n === undefined) ? 'N/A' : (n > 0 ? '+' : '') + n.toFixed(1) + '%';
 }
 
+/* ===== VUE CARTES ===== */
 function marketBar(l){
-  if(!l.sector) return '';
+  if(!l.sector || !l.financials.prixM2) return '';
   const { min, avg, max } = l.sector;
   const clamp = (v) => Math.max(3, Math.min(97, v));
-  const posPrice = clamp(((l.listing.prixM2 - min) / (max - min)) * 100);
+  const posPrice = clamp(((l.financials.prixM2 - min) / (max - min)) * 100);
   const posAvg = clamp(((avg - min) / (max - min)) * 100);
-  const deltaPct = Math.round(((l.listing.prixM2 - avg) / avg) * 100);
-  const below = deltaPct <= 0;
+  const below = l.financials.ecartMarche <= 0;
   const pinColor = below ? "var(--green)" : "var(--red)";
   const deltaText = below
-    ? `${Math.abs(deltaPct)}% sous la moyenne du secteur`
-    : `${deltaPct}% au-dessus de la moyenne du secteur`;
-
+    ? `${Math.abs(l.financials.ecartMarche)}% sous la moyenne du secteur`
+    : `${l.financials.ecartMarche}% au-dessus de la moyenne du secteur`;
   return `
     <div class="market-block">
       <div class="market-label"><span>Comparaison secteur</span><b>DVF</b></div>
@@ -466,44 +393,34 @@ function marketBar(l){
         <div class="market-avg" style="left:${posAvg}%"></div>
         <div class="market-pin" style="left:${posPrice}%; background:${pinColor}"></div>
       </div>
-      <div class="market-caption">
-        <b>${l.listing.prixM2.toLocaleString('fr-FR')} €/m²</b> — ${deltaText}
-      </div>
+      <div class="market-caption"><b>${l.financials.prixM2.toLocaleString('fr-FR')} €/m²</b> — ${deltaText}</div>
     </div>
   `;
 }
 
 function rentBlock(l){
-  const rent = l.rent;
-  const currentValue = l.metrics?.rendementBrut !== null && l.rent ? l.rent.monthlyRent : '';
-  const badge = rent && !rent.corrige
-    ? `<span class="rent-badge estimated">Estimé${rent.fiable === false ? ' (peu fiable)' : ''}</span>`
-    : rent
-      ? `<span class="rent-badge corrected">Corrigé par vous</span>`
-      : '';
-
+  const badge = l.project.rentEstimated
+    ? `<span class="rent-badge estimated">Estimé${l.project.rentFiable === false ? ' (peu fiable)' : ''}</span>`
+    : `<span class="rent-badge corrected">Corrigé par vous</span>`;
   return `
     <div class="rent-block">
       <div class="rent-label">Loyer mensuel ${badge}</div>
       <div class="rent-edit">
-        <input type="number" class="rent-input" value="${currentValue}" min="0" step="10" />
+        <input type="number" class="rent-input" value="${l.project.monthlyRent || ''}" min="0" step="10" />
         <button class="rent-save" onclick="updateRent('${l.id}', this.previousElementSibling)">OK</button>
       </div>
     </div>
   `;
 }
 
-function render(list){
+function renderCards(list){
   const grid = document.getElementById('cardGrid');
-  const displayed = list || listings;
-  document.getElementById('countLabel').textContent = `${displayed.length} annonce${displayed.length > 1 ? 's' : ''} affichée${displayed.length > 1 ? 's' : ''} sur ${listings.length}`;
-  
-  grid.innerHTML = displayed.map((l) => `
+  grid.innerHTML = list.map((l) => `
     <div class="card">
       <div class="card-photo" ${l.listing.imageUrl ? `style="background-image:url('${l.listing.imageUrl}')"` : ''}>
-        <div class="card-badge">${l.listing.surface} m²</div>
+        <div class="card-badge">${l.listing.surface || '?'} m²</div>
         ${l.listing.imageIsCity ? '<div class="card-badge photo-source">Photo de la ville</div>' : ''}
-        <button class="delete-btn" onclick="event.stopPropagation(); removeListing('${l.id}')" title="Supprimer cette analyse">✕</button>
+        <button class="delete-btn" onclick="event.stopPropagation(); removeListing('${l.id}')" title="Supprimer">✕</button>
       </div>
       <div class="card-body">
         <div class="card-top">
@@ -511,39 +428,124 @@ function render(list){
             <div class="card-price">${currency(l.listing.prix)}</div>
             <div class="card-city">${l.listing.ville || 'Localisation inconnue'}</div>
           </div>
-          ${ring(l.metrics?.score || 50)}
+          ${ring(l.financials.score)}
         </div>
         <div class="card-metrics">
           <div class="metric">
-            <div class="label">Rendement</div>
-            <div class="value">${l.metrics?.rendementBrut ? l.metrics.rendementBrut.toFixed(1) + '%' : 'N/A'}</div>
+            <div class="label">Rendement net</div>
+            <div class="value">${l.financials.rentabiliteNette !== null ? l.financials.rentabiliteNette.toFixed(1) + '%' : 'N/A'}</div>
           </div>
           <div class="metric">
-            <div class="label">Écart marché</div>
-            <div class="value">${l.metrics?.ecartMarche ? (l.metrics.ecartMarche > 0 ? '+' : '') + l.metrics.ecartMarche.toFixed(1) + '%' : 'N/A'}</div>
+            <div class="label">Cash-flow</div>
+            <div class="value" style="color:${l.financials.cashFlowMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${l.financials.cashFlowMensuel >= 0 ? '+' : ''}${currency(l.financials.cashFlowMensuel)}/mois</div>
           </div>
         </div>
         ${rentBlock(l)}
         ${marketBar(l)}
+        ${l.listing.url ? `<a class="card-footer-link" href="${l.listing.url}" target="_blank" rel="noopener">Voir l'annonce d'origine →</a>` : ''}
       </div>
     </div>
   `).join('');
 }
 
-// Remplit le filtre "Ville" avec la liste des villes réellement présentes dans vos analyses
+/* ===== VUE TABLEAU ===== */
+function numCell(l, group, field, opts){
+  opts = opts || {};
+  const value = group === 'project' ? l.project[field] : l.listing[field];
+  return `<input type="number" class="table-input" style="width:${opts.width||'85px'}" value="${value ?? 0}" step="${opts.step||1}" onchange="updateField('${l.id}','${group}','${field}',this.value,true)">`;
+}
+function textCell(l, group, field, width){
+  const value = group === 'root' ? (l[field] ?? '') : (group === 'project' ? l.project[field] : l.listing[field]);
+  return `<input type="text" class="table-input" style="width:${width||'140px'}" value="${(value ?? '').toString().replace(/"/g,'&quot;')}" onchange="updateField('${l.id}','${group}','${field}',this.value,false)">`;
+}
+
+const TABLE_COLUMNS = [
+  "ID", "Contact / Agence", "Lien", "Ville", "Quartier", "Type", "Surface m²",
+  "Prix FAI", "Prix/m²", "Écart marché", "DPE",
+  "Travaux", "Frais de notaire", "Total projet",
+  "Loyer mensuel", "Loyer annuel",
+  "Taxe foncière/mois", "Charges/mois", "Assurance PNO", "Gestion",
+  "Charges total/mois", "Charges total/an",
+  "Taux crédit %", "Crédit mensuel (25 ans)",
+  "Rentabilité brute", "Rentabilité nette", "Cash flow mensuel", "SCORE", ""
+];
+
+function renderTable(list){
+  const wrap = document.getElementById('tableWrap');
+  const headerRow = TABLE_COLUMNS.map(c => `<th>${c}</th>`).join('');
+
+  const rows = list.map(l => {
+    const f = l.financials, p = l.project, lst = l.listing;
+    return `<tr>
+      <td>${textCell(l, 'root', 'label', '170px')}</td>
+      <td>${textCell(l, 'listing', 'contact', '150px')}</td>
+      <td>${lst.url ? `<a class="table-link" href="${lst.url}" target="_blank" rel="noopener">Voir</a>` : '—'}</td>
+      <td>${lst.ville || '—'}</td>
+      <td>${textCell(l, 'listing', 'quartier', '120px')}</td>
+      <td>${lst.type_bien || '—'}</td>
+      <td>${lst.surface ?? '—'}</td>
+      <td class="col-computed">${currency(lst.prix)}</td>
+      <td class="col-computed">${f.prixM2 ? currency(f.prixM2) : '—'}</td>
+      <td class="col-computed">${pct(f.ecartMarche)}</td>
+      <td>${lst.dpe || '—'}</td>
+      <td>${numCell(l, 'project', 'travaux', {width:'90px', step:500})}</td>
+      <td>${numCell(l, 'project', 'fraisNotaire', {width:'95px', step:500})}</td>
+      <td class="col-computed">${currency(f.totalProjet)}</td>
+      <td>${numCell(l, 'project', 'monthlyRent', {width:'85px', step:10})}</td>
+      <td class="col-computed">${currency(f.loyerAnnuel)}</td>
+      <td>${numCell(l, 'project', 'taxeFonciereMensuel', {width:'80px'})}</td>
+      <td>${numCell(l, 'project', 'chargesMensuelles', {width:'80px'})}</td>
+      <td>${numCell(l, 'project', 'assurancePNO', {width:'80px'})}</td>
+      <td>${numCell(l, 'project', 'gestionMensuelle', {width:'80px'})}</td>
+      <td class="col-computed">${currency(f.chargesTotalMensuel)}</td>
+      <td class="col-computed">${currency(f.chargesTotalAnnuel)}</td>
+      <td>${numCell(l, 'project', 'tauxCredit', {width:'70px', step:0.05})}</td>
+      <td class="col-computed">${currency(f.creditMensuel)}</td>
+      <td class="col-computed">${f.rentabiliteBrut !== null ? f.rentabiliteBrut.toFixed(2)+'%' : '—'}</td>
+      <td class="col-computed">${f.rentabiliteNette !== null ? f.rentabiliteNette.toFixed(2)+'%' : '—'}</td>
+      <td class="col-computed" style="color:${f.cashFlowMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(f.cashFlowMensuel)}</td>
+      <td class="col-score" style="color:${scoreColor(f.score)}">${f.score}</td>
+      <td><button class="table-delete" onclick="removeListing('${l.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  // Ligne de totaux / moyennes sur les lignes affichées
+  const n = list.length || 1;
+  const avg = (arr) => arr.reduce((a,b) => a + (b || 0), 0) / n;
+  const totalCashflow = list.reduce((a,l) => a + (l.financials.cashFlowMensuel || 0), 0);
+  const avgBrut = avg(list.map(l => l.financials.rentabiliteBrut || 0));
+  const avgNette = avg(list.map(l => l.financials.rentabiliteNette || 0));
+  const avgScore = avg(list.map(l => l.financials.score || 0));
+
+  const footer = list.length ? `
+    <tfoot><tr>
+      <td>Moyennes / Totaux</td>
+      <td colspan="18"></td>
+      <td class="col-computed">${avgBrut.toFixed(2)}%</td>
+      <td class="col-computed">${avgNette.toFixed(2)}%</td>
+      <td class="col-computed" style="color:${totalCashflow >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(totalCashflow)} (total)</td>
+      <td class="col-score">${Math.round(avgScore)}</td>
+      <td></td>
+    </tr></tfoot>` : '';
+
+  wrap.innerHTML = `<table class="data-table"><thead><tr>${headerRow}</tr></thead><tbody>${rows}</tbody>${footer}</table>`;
+}
+
+function render(list){
+  lastDisplayed = list;
+  document.getElementById('countLabel').textContent = `${list.length} analyse${list.length > 1 ? 's' : ''} affichée${list.length > 1 ? 's' : ''} sur ${listings.length}`;
+  if(currentView === 'cards') renderCards(list);
+  else renderTable(list);
+}
+
 function updateVilleFilter(){
   const select = document.getElementById('filterVille');
   const currentValue = select.value;
   const villes = [...new Set(listings.map(l => l.listing.ville).filter(Boolean))].sort();
-
-  select.innerHTML = '<option value="">Toutes</option>' +
-    villes.map(v => `<option value="${v}">${v}</option>`).join('');
-
-  // On essaie de garder la sélection précédente si elle existe toujours
+  select.innerHTML = '<option value="">Toutes</option>' + villes.map(v => `<option value="${v}">${v}</option>`).join('');
   if (villes.includes(currentValue)) select.value = currentValue;
 }
 
-// Applique tous les filtres + le tri, puis réaffiche seulement les cartes qui correspondent
 function applyFilters(){
   const ville = document.getElementById('filterVille').value;
   const rendementMin = parseFloat(document.getElementById('filterRendement').value);
@@ -553,21 +555,20 @@ function applyFilters(){
 
   let filtered = listings.filter(l => {
     if (ville && l.listing.ville !== ville) return false;
-    if ((l.metrics?.rendementBrut ?? -Infinity) < rendementMin) return false;
-    if ((l.metrics?.score ?? -Infinity) < scoreMin) return false;
-    if ((l.listing.prixM2 ?? Infinity) > prixM2Max) return false;
+    if ((l.financials.rentabiliteNette ?? -Infinity) < rendementMin) return false;
+    if ((l.financials.score ?? -Infinity) < scoreMin) return false;
+    if ((l.financials.prixM2 ?? Infinity) > prixM2Max) return false;
     return true;
   });
 
   const sorters = {
     recent: (a, b) => new Date(b.savedAt) - new Date(a.savedAt),
-    score: (a, b) => (b.metrics?.score ?? 0) - (a.metrics?.score ?? 0),
-    rendement: (a, b) => (b.metrics?.rendementBrut ?? 0) - (a.metrics?.rendementBrut ?? 0),
+    score: (a, b) => (b.financials.score ?? 0) - (a.financials.score ?? 0),
+    rendement: (a, b) => (b.financials.rentabiliteNette ?? 0) - (a.financials.rentabiliteNette ?? 0),
     prix_asc: (a, b) => (a.listing.prix ?? 0) - (b.listing.prix ?? 0),
     prix_desc: (a, b) => (b.listing.prix ?? 0) - (a.listing.prix ?? 0)
   };
   filtered.sort(sorters[tri] || sorters.recent);
-
   render(filtered);
 }
 
@@ -596,36 +597,65 @@ async function removeListing(id){
   }
 }
 
+async function updateField(id, group, field, rawValue, isNumber){
+  const value = isNumber ? (parseFloat(rawValue) || 0) : rawValue;
+  const body = group === 'root' ? { [field]: value } : { [group]: { [field]: value } };
+  try {
+    const response = await fetch(`/api/listings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
+    const updated = await response.json();
+    const idx = listings.findIndex(l => l.id === id);
+    if(idx !== -1) listings[idx] = updated;
+    applyFilters();
+  } catch(err) {
+    alert('Impossible de mettre à jour cette valeur : ' + err.message);
+  }
+}
+
+async function updateRent(id, inputEl){
+  const monthlyRent = parseFloat(inputEl.value);
+  if(isNaN(monthlyRent) || monthlyRent < 0){ alert('Merci d\'entrer un loyer valide.'); return; }
+  try {
+    const response = await fetch(`/api/listings/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project: { monthlyRent, rentEstimated: false } })
+    });
+    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
+    const updated = await response.json();
+    const idx = listings.findIndex(l => l.id === id);
+    if(idx !== -1) listings[idx] = updated;
+    applyFilters();
+  } catch(err) {
+    alert('Impossible de mettre à jour le loyer : ' + err.message);
+  }
+}
+
 async function analyzeUrl(){
   const url = document.getElementById('urlInput').value.trim();
   const feedbackMsg = document.getElementById('feedbackMsg');
   const btn = document.getElementById('analyzeBtn');
-  
-  if(!url){
-    feedbackMsg.innerHTML = '<div class="error-msg">Veuillez coller une URL ou le texte d\'une annonce.</div>';
-    return;
-  }
+
+  if(!url){ feedbackMsg.innerHTML = '<div class="error-msg">Veuillez coller une URL ou le texte d\'une annonce.</div>'; return; }
 
   btn.disabled = true;
   feedbackMsg.innerHTML = '<div class="success-msg">Analyse en cours... (extraction IA + comparaison marché + estimation du loyer)</div>';
 
   try {
     const response = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url })
     });
-
-    if(!response.ok) {
-      const error = await response.json();
-      throw new Error(error.details || error.error || 'Erreur serveur');
-    }
+    if(!response.ok) { const error = await response.json(); throw new Error(error.details || error.error || 'Erreur serveur'); }
 
     const saved = await response.json();
     listings.unshift(saved);
     updateVilleFilter();
     applyFilters();
-    feedbackMsg.innerHTML = '<div class="success-msg">✓ Annonce analysée et sauvegardée. Le loyer a été estimé automatiquement — vous pouvez le corriger sur la carte si besoin.</div>';
+    feedbackMsg.innerHTML = '<div class="success-msg">✓ Annonce analysée et sauvegardée. Vous pouvez ajuster tous les paramètres financiers dans le tableau.</div>';
     document.getElementById('urlInput').value = '';
   } catch(err) {
     feedbackMsg.innerHTML = `<div class="error-msg">Erreur : ${err.message}</div>`;
@@ -634,29 +664,42 @@ async function analyzeUrl(){
   }
 }
 
-async function updateRent(id, inputEl){
-  const monthlyRent = parseFloat(inputEl.value);
-  if(isNaN(monthlyRent) || monthlyRent <= 0){
-    alert('Merci d\'entrer un loyer valide.');
-    return;
-  }
-  try {
-    const response = await fetch(`/api/listings/${id}/rent`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ monthlyRent })
-    });
-    if(!response.ok){
-      const error = await response.json();
-      throw new Error(error.details || error.error);
-    }
-    const updated = await response.json();
-    const idx = listings.findIndex(l => l.id === id);
-    if(idx !== -1) listings[idx] = updated;
-    applyFilters();
-  } catch(err) {
-    alert('Impossible de mettre à jour le loyer : ' + err.message);
-  }
+function exportExcel(){
+  if(!lastDisplayed.length){ alert('Aucune analyse à exporter.'); return; }
+  const rows = lastDisplayed.map(l => ({
+    "ID": l.label,
+    "Contact / Agence": l.listing.contact || '',
+    "Lien": l.listing.url || '',
+    "Ville": l.listing.ville || '',
+    "Quartier": l.listing.quartier || '',
+    "Type": l.listing.type_bien || '',
+    "Surface m²": l.listing.surface || '',
+    "Prix FAI": l.listing.prix || '',
+    "Prix m²": l.financials.prixM2 || '',
+    "Écart marché %": l.financials.ecartMarche ?? '',
+    "DPE": l.listing.dpe || '',
+    "Travaux": l.project.travaux || 0,
+    "Frais de notaire": l.project.fraisNotaire || 0,
+    "Total projet": l.financials.totalProjet || 0,
+    "Loyer Mensuel": l.project.monthlyRent || 0,
+    "Loyer annuel": l.financials.loyerAnnuel || 0,
+    "Taxe foncière mensuel": l.project.taxeFonciereMensuel || 0,
+    "Charges mensuelles": l.project.chargesMensuelles || 0,
+    "Assurance PNO": l.project.assurancePNO || 0,
+    "Gestion": l.project.gestionMensuelle || 0,
+    "Charges total mensuel": l.financials.chargesTotalMensuel || 0,
+    "Charges total annuel": l.financials.chargesTotalAnnuel || 0,
+    "Taux crédit %": l.project.tauxCredit || 0,
+    "Crédit mensuel": l.financials.creditMensuel || 0,
+    "Rentabilité brute %": l.financials.rentabiliteBrut ?? '',
+    "Rentabilité nette %": l.financials.rentabiliteNette ?? '',
+    "Cash flow mensuel": l.financials.cashFlowMensuel || 0,
+    "SCORE": l.financials.score ?? ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Analyse Annonce");
+  XLSX.writeFile(wb, `AxIA_analyses_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 loadListings();

@@ -9,7 +9,7 @@ import { getSectorStats } from "./dvf.js";
 import { estimateRent } from "./rent.js";
 import { getCodeInsee } from "./geo.js";
 import { getCityImage } from "./cityImage.js";
-import { computeMetrics } from "./calc.js";
+import { computeFullMetrics, TAUX_CREDIT_DEFAUT } from "./calc.js";
 import { readListings, addListing, updateListing, deleteListing } from "./storage.js";
 
 const app = express();
@@ -44,13 +44,11 @@ app.delete("/api/listings/:id", async (req, res) => {
   }
 });
 
-// Recalcule les métriques d'une analyse existante avec un loyer mensuel corrigé à la main
-app.patch("/api/listings/:id/rent", async (req, res) => {
+// Met à jour n'importe quel champ (listing et/ou paramètres financiers du projet)
+// d'une analyse existante, puis recalcule tous les indicateurs financiers.
+app.patch("/api/listings/:id", async (req, res) => {
   try {
-    const { monthlyRent } = req.body;
-    if (monthlyRent === undefined || monthlyRent === null || isNaN(monthlyRent)) {
-      return res.status(400).json({ error: "Merci de fournir un loyer mensuel valide." });
-    }
+    const { listing: listingChanges, project: projectChanges, label } = req.body;
 
     const listings = await readListings();
     const entry = listings.find((l) => l.id === req.params.id);
@@ -58,23 +56,29 @@ app.patch("/api/listings/:id/rent", async (req, res) => {
       return res.status(404).json({ error: "Analyse introuvable." });
     }
 
-    const metrics = computeMetrics({ listing: entry.listing, sector: entry.sector, monthlyRent });
+    const mergedListing = { ...entry.listing, ...(listingChanges || {}) };
+    const mergedProject = { ...entry.project, ...(projectChanges || {}) };
+
+    const financials = computeFullMetrics({ listing: mergedListing, sector: entry.sector, project: mergedProject });
+
     const updated = await updateListing(req.params.id, {
-      metrics,
-      rent: { ...entry.rent, monthlyRent, corrige: true }
+      listing: mergedListing,
+      project: mergedProject,
+      financials,
+      ...(label !== undefined ? { label } : {})
     });
 
     res.json(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Impossible de recalculer cette analyse.", details: err.message });
+    res.status(500).json({ error: "Impossible de mettre à jour cette analyse.", details: err.message });
   }
 });
 
 // Route principale : reçoit une URL (ou texte) d'annonce, renvoie l'analyse complète ET la sauvegarde
 app.post("/api/analyze", async (req, res) => {
   try {
-    const { url, monthlyRent } = req.body;
+    const { url } = req.body;
 
     if (!url) {
       return res.status(400).json({ error: "Merci de fournir une URL ou le texte d'une annonce." });
@@ -83,35 +87,53 @@ app.post("/api/analyze", async (req, res) => {
     // Étape 1 : l'IA lit l'annonce et en extrait les informations structurées
     const listing = await extractListingFromUrl(url);
 
-    // Si l'annonce ne fournissait pas d'image exploitable (texte collé, ou site sans aperçu),
-    // on utilise une photo représentative de la ville à la place.
+    // Étape 2 : image de l'annonce, ou photo de la ville en remplacement
     if (!listing.imageUrl && listing.ville) {
       listing.imageUrl = await getCityImage(listing.ville);
       listing.imageIsCity = !!listing.imageUrl;
     }
 
-    // Étape 2 : on trouve le code de la commune (réutilisé pour DVF et pour l'estimation de loyer)
+    // Étape 3 : code commune (réutilisé pour DVF et estimation de loyer)
     const codeInsee = await getCodeInsee(listing.ville, listing.code_postal);
 
-    // Étape 3 : on compare au marché réel du secteur grâce aux données DVF
+    // Étape 4 : comparaison au marché réel du secteur (DVF)
     const sector = codeInsee ? await getSectorStats(listing) : null;
 
-    // Étape 4 : on estime automatiquement le loyer mensuel, sauf si l'utilisateur en a fourni un lui-même
-    let rent = null;
-    let effectiveRent = monthlyRent;
+    // Étape 5 : estimation automatique du loyer mensuel
+    let estimatedRent = null;
+    let rentFiable = null;
     if (codeInsee) {
       const estimation = await estimateRent(listing, codeInsee);
       if (estimation) {
-        rent = { ...estimation, monthlyRent: monthlyRent || estimation.loyerEstime, corrige: !!monthlyRent };
-        if (!monthlyRent) effectiveRent = estimation.loyerEstime;
+        estimatedRent = estimation.loyerEstime;
+        rentFiable = estimation.fiable;
       }
     }
 
-    // Étape 5 : on calcule le rendement, l'écart au marché et un score global
-    const metrics = computeMetrics({ listing, sector, monthlyRent: effectiveRent });
+    // Étape 6 : paramètres financiers par défaut du projet (tous modifiables ensuite)
+    const project = {
+      monthlyRent: estimatedRent || 0,
+      rentEstimated: !!estimatedRent,
+      rentFiable,
+      travaux: 0,
+      fraisNotaire: listing.prix ? Math.round(listing.prix * 0.075) : 0, // 7,5% (ancien), modifiable
+      taxeFonciereMensuel: 0,
+      chargesMensuelles: 0,
+      assurancePNO: 0,
+      gestionMensuelle: 0,
+      tauxCredit: TAUX_CREDIT_DEFAUT
+    };
 
-    // Étape 6 : on sauvegarde le résultat sur le disque, pour qu'il survive à la fermeture du navigateur
-    const saved = await addListing({ listing, sector, metrics, rent });
+    // Étape 7 : calcul de tous les indicateurs financiers
+    const financials = computeFullMetrics({ listing, sector, project });
+
+    // Étape 8 : un nom court par défaut pour identifier l'annonce dans le tableau
+    const label = [listing.type_bien, listing.ville, listing.surface ? `${listing.surface}m²` : null]
+      .filter(Boolean)
+      .join(" ") || "Annonce sans nom";
+
+    // Étape 9 : sauvegarde
+    const saved = await addListing({ listing, sector, project, financials, label });
 
     res.json(saved);
   } catch (err) {

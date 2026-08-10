@@ -73,10 +73,12 @@ export async function extractListingFromUrl(input) {
   "prix": nombre (en euros, sans espace ni symbole),
   "surface": nombre (en m²),
   "ville": chaîne de caractères,
+  "quartier": chaîne de caractères ou null (quartier ou secteur précis si mentionné),
   "code_postal": chaîne de caractères ou null,
   "type_bien": "Appartement" ou "Maison",
   "pieces": nombre ou null,
   "dpe": lettre A à G ou null,
+  "contact": chaîne de caractères ou null (nom de l'agence, du contact, ou numéro de téléphone si mentionné),
   "resume": courte phrase résumant le bien
 }
 
