@@ -1,0 +1,157 @@
+[
+  {
+    "id": "1786394715543",
+    "savedAt": "2026-08-10T20:45:15.543Z",
+    "listing": {
+      "prix": 89900,
+      "surface": 65.6,
+      "ville": "Limoges",
+      "code_postal": "87000",
+      "type_bien": "Appartement",
+      "pieces": 4,
+      "dpe": "D",
+      "resume": "Appartement T4 de 65,6 m² entièrement rénové au rez-de-chaussée surélevé avec 2 chambres, cuisine équipée et parking.",
+      "url": "https://www.seloger.com/annonce/achat/nouvelle-aquitaine/haute-vienne-87/limoges-87000/2636JHNI1QX1?serp_view=list&search=distributionTypes%3DBuy%26estateTypes%3DHouse%2CApartment%26locations%3DPOCOFR5581%26priceMax%3D120000%26priceMin%3D50000#ln=classified_search_results&m=classified_search_results_classified_classified_detail_L",
+      "imageUrl": "https://mms.seloger.com/b/f/3/a/bf3ab085-271b-417b-a20f-8410643db8e5.jpg?ci_seal=c157f5ea4eccca8a725e2c3077f77f48006c4979",
+      "prixM2": 1370
+    },
+    "sector": null,
+    "metrics": {
+      "rendementBrut": 9.1,
+      "ecartMarche": null,
+      "score": 80
+    },
+    "rent": {
+      "loyerM2": 10.4,
+      "loyerEstime": 682,
+      "fiable": true,
+      "monthlyRent": 682,
+      "corrige": false
+    }
+  },
+  {
+    "id": "1786054456465",
+    "savedAt": "2026-08-06T22:14:16.465Z",
+    "listing": {
+      "prix": 66000,
+      "surface": 57,
+      "ville": "Limoges",
+      "code_postal": "87100",
+      "type_bien": "Appartement",
+      "pieces": 3,
+      "dpe": "E",
+      "resume": "Appartement T3 de 57 m² en rez-de-chaussée avec 2 chambres, cave et chauffage collectif, à Limoges",
+      "url": "https://www.seloger.com/annonces/achat/appartement/limoges-87/beaublanc/274442797.htm?serp_view=list&search=distributionTypes%3DBuy%26estateTypes%3DHouse%2CApartment%26locations%3DPOCOFR5581%26priceMax%3D120000%26priceMin%3D50000#ln=classified_search_results&m=classified_search_results_classified_classified_detail_M",
+      "imageUrl": "https://mms.seloger.com/f/6/e/c/f6ec0ece-0894-46cf-aec7-171bef4d317a.jpg?ci_seal=388b0b2f398797b6462acce245d8378e42db7115",
+      "prixM2": 1158
+    },
+    "sector": null,
+    "metrics": {
+      "rendementBrut": 10.73,
+      "ecartMarche": null,
+      "score": 80
+    },
+    "rent": {
+      "loyerM2": 10.4,
+      "loyerEstime": 593,
+      "fiable": true,
+      "monthlyRent": 590,
+      "corrige": true
+    }
+  },
+  {
+    "id": "1786011033885",
+    "savedAt": "2026-08-06T10:10:33.885Z",
+    "listing": {
+      "prix": 80000,
+      "surface": 50.6,
+      "ville": "Limoges",
+      "code_postal": "87100",
+      "type_bien": "Maison",
+      "pieces": 2,
+      "dpe": "G",
+      "resume": "Maison en pierre de 1920 à rénover, 50,6 m² sur terrain de 148 m², 2 pièces avec 1 chambre à Limoges",
+      "url": "https://www.seloger.com/annonces/achat/maison/limoges-87/landougelimoges-nord/274273431.htm?serp_view=list&search=distributionTypes%3DBuy%26estateTypes%3DHouse%2CApartment%26locations%3DPOCOFR5581%26priceMax%3D120000%26priceMin%3D50000#ln=classified_search_results&m=classified_search_results_classified_classified_detail_L",
+      "imageUrl": "https://mms.seloger.com/8/2/7/8/8278564b-ca27-449b-aec2-7ce24d9403d1.jpg?ci_seal=4b8c6c9001ffc5a72680580816cbf195f2ef5e23",
+      "prixM2": 1581
+    },
+    "sector": null,
+    "metrics": {
+      "rendementBrut": 7,
+      "ecartMarche": null,
+      "score": 78
+    },
+    "rent": {
+      "loyerM2": 9.23,
+      "loyerEstime": 467,
+      "fiable": true,
+      "monthlyRent": 467,
+      "corrige": true
+    }
+  },
+  {
+    "id": "1786010649583",
+    "savedAt": "2026-08-06T10:04:09.583Z",
+    "listing": {
+      "prix": 119900,
+      "surface": 64.3,
+      "ville": "Limoges",
+      "code_postal": "87100",
+      "type_bien": "Appartement",
+      "pieces": 3,
+      "dpe": "D",
+      "resume": "Appartement T3 de 64,3 m² en parfait état avec 2 chambres, cuisine équipée, garage et cave à Limoges",
+      "url": "https://www.seloger.com/annonces/achat/appartement/limoges-87/275783443.htm?serp_view=list&search=distributionTypes%3DBuy%26estateTypes%3DHouse%2CApartment%26locations%3DPOCOFR5581%26priceMax%3D120000%26priceMin%3D50000#ln=classified_search_results&m=classified_search_results_classified_classified_detail_M",
+      "prixM2": 1865
+    },
+    "sector": {
+      "min": 0,
+      "avg": 1215,
+      "max": 4129,
+      "nbTransactions": 175
+    },
+    "metrics": {
+      "rendementBrut": 6.7,
+      "ecartMarche": 53.5,
+      "score": 57
+    },
+    "rent": {
+      "loyerM2": 10.4,
+      "loyerEstime": 669,
+      "fiable": true,
+      "monthlyRent": 669,
+      "corrige": false
+    }
+  },
+  {
+    "id": "1786009501318",
+    "savedAt": "2026-08-06T09:45:01.318Z",
+    "listing": {
+      "prix": 69500,
+      "surface": 50.8,
+      "ville": "Limoges",
+      "code_postal": "87100",
+      "type_bien": "Appartement",
+      "pieces": 2,
+      "dpe": "E",
+      "resume": "Appartement T2 de 50,8 m² au 2e étage, entièrement rénové, situé à Limoges près de la gare avec cave et grenier",
+      "url": "https://www.seloger.com/annonces/achat/appartement/limoges-87/benedictins-montplaisir/276053149.htm?serp_view=list&search=distributionTypes%3DBuy%26estateTypes%3DHouse%2CApartment%26locations%3DPOCOFR5581%26priceMax%3D120000%26priceMin%3D50000#ln=classified_search_results&m=classified_search_results_classified_classified_detail_M",
+      "prixM2": 1368
+    },
+    "sector": {
+      "min": 0,
+      "avg": 1215,
+      "max": 4129,
+      "nbTransactions": 175
+    },
+    "metrics": {
+      "rendementBrut": 6.91,
+      "ecartMarche": 12.6,
+      "score": 65
+    },
+    "rent": {
+      "monthlyRent": 400,
+      "corrige": true
+    }
+  }
+]

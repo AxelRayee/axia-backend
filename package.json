@@ -1,0 +1,16 @@
+{
+  "name": "axia-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend AxIA : extraction d'annonces immobilières par IA + comparaison marché DVF",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
