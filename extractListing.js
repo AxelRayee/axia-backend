@@ -91,7 +91,13 @@ Texte de l'annonce :
   });
 
   const raw = message.content.find((b) => b.type === "text")?.text || "{}";
-  const cleaned = raw.replace(/```json|```/g, "").trim();
+  // On extrait uniquement le bloc JSON (entre la première { et la dernière }),
+  // au cas où l'IA aurait ajouté du texte avant/après malgré la consigne.
+  const jsonStart = raw.indexOf("{");
+  const jsonEnd = raw.lastIndexOf("}");
+  const cleaned = jsonStart !== -1 && jsonEnd !== -1
+    ? raw.slice(jsonStart, jsonEnd + 1)
+    : raw.replace(/```json|```/g, "").trim();
 
   let data;
   try {
