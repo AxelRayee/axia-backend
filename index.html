@@ -576,7 +576,21 @@ async function loadListings(){
   try {
     const response = await fetch('/api/listings');
     const data = await response.json();
-    listings = data.listings || [];
+    const raw = data.listings || [];
+
+    // Les analyses créées avant la mise à jour du site n'ont pas la nouvelle structure
+    // de données (project/financials) : on les retire automatiquement plutôt que de
+    // laisser l'affichage planter dessus.
+    const valid = raw.filter(l => l && l.financials && l.project && l.listing);
+    const obsolete = raw.filter(l => !(l && l.financials && l.project && l.listing));
+
+    if (obsolete.length > 0) {
+      await Promise.all(obsolete.map(l => fetch(`/api/listings/${l.id}`, { method: 'DELETE' }).catch(() => {})));
+      document.getElementById('feedbackMsg').innerHTML =
+        `<div class="success-msg">${obsolete.length} ancienne${obsolete.length > 1 ? 's' : ''} analyse${obsolete.length > 1 ? 's' : ''} (structure obsolète) supprimée${obsolete.length > 1 ? 's' : ''} automatiquement.</div>`;
+    }
+
+    listings = valid;
     updateVilleFilter();
     applyFilters();
   } catch(err) {
