@@ -6,6 +6,20 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
+function extractFirstJsonObject(raw) {
+  const start = raw.indexOf("{");
+  if (start === -1) return "{}";
+  let depth = 0;
+  for (let i = start; i < raw.length; i++) {
+    if (raw[i] === "{") depth++;
+    else if (raw[i] === "}") {
+      depth--;
+      if (depth === 0) return raw.slice(start, i + 1);
+    }
+  }
+  return raw.slice(start);
+}
+
 export async function extractPlanRooms(imageBase64, mimeType) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -50,9 +64,7 @@ Si aucune pièce n'a de mesure exploitable, réponds avec "pieces": [].`
   });
 
   const raw = message.content.find((b) => b.type === "text")?.text || "{}";
-  const jsonStart = raw.indexOf("{");
-  const jsonEnd = raw.lastIndexOf("}");
-  const cleaned = jsonStart !== -1 && jsonEnd !== -1 ? raw.slice(jsonStart, jsonEnd + 1) : "{}";
+  const cleaned = extractFirstJsonObject(raw);
 
   try {
     const data = JSON.parse(cleaned);

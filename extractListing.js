@@ -1,6 +1,27 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 /**
+ * Extrait le premier bloc JSON complet et valide d'un texte, en comptant les accolades
+ * pour trouver la fermeture exacte qui correspond à l'ouverture — plutôt que de supposer
+ * que la dernière "}" du texte est la bonne (ce qui casse si l'IA ajoute du texte après,
+ * ou plusieurs blocs, ce qui arrive plus souvent avec un texte source très long).
+ */
+function extractFirstJsonObject(raw) {
+  const start = raw.indexOf("{");
+  if (start === -1) return "{}";
+
+  let depth = 0;
+  for (let i = start; i < raw.length; i++) {
+    if (raw[i] === "{") depth++;
+    else if (raw[i] === "}") {
+      depth--;
+      if (depth === 0) return raw.slice(start, i + 1);
+    }
+  }
+  return raw.slice(start); // fallback si jamais mal fermé
+}
+
+/**
  * Cherche l'image de prévisualisation d'une page web (balise "og:image"),
  * utilisée par la plupart des sites pour l'aperçu quand on partage un lien.
  */
@@ -93,13 +114,7 @@ Texte de l'annonce :
   });
 
   const raw = message.content.find((b) => b.type === "text")?.text || "{}";
-  // On extrait uniquement le bloc JSON (entre la première { et la dernière }),
-  // au cas où l'IA aurait ajouté du texte avant/après malgré la consigne.
-  const jsonStart = raw.indexOf("{");
-  const jsonEnd = raw.lastIndexOf("}");
-  const cleaned = jsonStart !== -1 && jsonEnd !== -1
-    ? raw.slice(jsonStart, jsonEnd + 1)
-    : raw.replace(/```json|```/g, "").trim();
+  const cleaned = extractFirstJsonObject(raw);
 
   let data;
   try {
