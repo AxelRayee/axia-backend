@@ -590,22 +590,49 @@ function applyFilters(){
   render(filtered);
 }
 
+// Complète les champs manquants d'une ancienne analyse avec des valeurs par défaut sûres,
+// au lieu de la supprimer. Ne renvoie null que si l'analyse est vraiment irrécupérable
+// (structure d'avant l'existence même des calculs financiers).
+function normalizeEntry(l){
+  if (!l || !l.listing || !l.project || !l.financials) return null;
+
+  l.project.sources = l.project.sources || {};
+  l.project.tauxAssuranceEmprunteur = l.project.tauxAssuranceEmprunteur ?? 0.34;
+  l.project.travauxDetail = l.project.travauxDetail || null;
+  l.project.gestionMensuelle = l.project.gestionMensuelle ?? 0;
+  l.project.travaux = l.project.travaux ?? 0;
+  l.financials.assuranceEmprunteurMensuelle = l.financials.assuranceEmprunteurMensuelle || 0;
+
+  // Anciens noms de champs (avant le passage taxe foncière annuelle / charges copro) : on les convertit.
+  if (l.project.taxeFonciereAnnuelle === undefined && l.project.taxeFonciereMensuel !== undefined) {
+    l.project.taxeFonciereAnnuelle = Math.round((l.project.taxeFonciereMensuel || 0) * 12);
+    l.project.sources.taxeFonciereAnnuelle = l.project.sources.taxeFonciereAnnuelle || 'manuel';
+  }
+  if (l.project.chargesCoproMensuelles === undefined && l.project.chargesMensuelles !== undefined) {
+    l.project.chargesCoproMensuelles = l.project.chargesMensuelles;
+    l.project.sources.chargesCoproMensuelles = l.project.sources.chargesCoproMensuelles || 'manuel';
+  }
+  l.project.taxeFonciereAnnuelle = l.project.taxeFonciereAnnuelle ?? null;
+  l.project.chargesCoproMensuelles = l.project.chargesCoproMensuelles ?? null;
+  l.project.assurancePNO = l.project.assurancePNO ?? 0;
+
+  return l;
+}
+
 async function loadListings(){
   try {
     const response = await fetch('/api/listings');
     const data = await response.json();
     const raw = data.listings || [];
 
-    // Les analyses créées avant la mise à jour du site n'ont pas la nouvelle structure
-    // de données (project/financials) : on les retire automatiquement plutôt que de
-    // laisser l'affichage planter dessus.
-    const valid = raw.filter(l => l && l.financials && l.project && l.listing && l.project.sources);
-    const obsolete = raw.filter(l => !(l && l.financials && l.project && l.listing && l.project.sources));
+    const normalized = raw.map(normalizeEntry);
+    const valid = normalized.filter(Boolean);
+    const irrecuperables = raw.filter((l, i) => normalized[i] === null);
 
-    if (obsolete.length > 0) {
-      await Promise.all(obsolete.map(l => fetch(`/api/listings/${l.id}`, { method: 'DELETE' }).catch(() => {})));
+    if (irrecuperables.length > 0) {
+      await Promise.all(irrecuperables.map(l => fetch(`/api/listings/${l.id}`, { method: 'DELETE' }).catch(() => {})));
       document.getElementById('feedbackMsg').innerHTML =
-        `<div class="success-msg">${obsolete.length} ancienne${obsolete.length > 1 ? 's' : ''} analyse${obsolete.length > 1 ? 's' : ''} (structure obsolète) supprimée${obsolete.length > 1 ? 's' : ''} automatiquement.</div>`;
+        `<div class="success-msg">${irrecuperables.length} analyse${irrecuperables.length > 1 ? 's' : ''} vraiment irrécupérable${irrecuperables.length > 1 ? 's' : ''} supprimée${irrecuperables.length > 1 ? 's' : ''}.</div>`;
     }
 
     listings = valid;
