@@ -12,11 +12,13 @@ import { getCityImage } from "./cityImage.js";
 import { estimateTaxeFonciere } from "./taxeFonciere.js";
 import { estimateAssurancePNO } from "./assurance.js";
 import { computeFullMetrics, TAUX_CREDIT_DEFAUT, TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT } from "./calc.js";
+import { extractPlanRooms } from "./planExtract.js";
+import { computeTotalTravaux } from "./travauxPrix.js";
 import { readListings, addListing, updateListing, deleteListing } from "./storage.js";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "15mb" })); // les plans (images/PDF) peuvent être volumineux
 app.use(express.static("."));
 
 // Champs financiers pour lesquels on retient l'origine de la valeur (annonce / estimation /
@@ -34,6 +36,19 @@ app.get("/api/listings", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de lire les analyses sauvegardées.", details: err.message });
+  }
+});
+
+// Récupère une seule analyse (utilisé par la page Travaux)
+app.get("/api/listings/:id", async (req, res) => {
+  try {
+    const listings = await readListings();
+    const entry = listings.find((l) => l.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
+    res.json(entry);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible de lire cette analyse.", details: err.message });
   }
 });
 
@@ -82,6 +97,63 @@ app.patch("/api/listings/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de mettre à jour cette analyse.", details: err.message });
+  }
+});
+
+// Reçoit un plan (image ou PDF, encodé en base64), le fait lire par l'IA pour en extraire
+// les pièces déjà cotées, et sauvegarde le tout sur l'analyse.
+app.post("/api/listings/:id/plan", async (req, res) => {
+  try {
+    const { imageBase64, mimeType } = req.body;
+    if (!imageBase64 || !mimeType) {
+      return res.status(400).json({ error: "Merci de fournir un plan (image ou PDF)." });
+    }
+
+    const listings = await readListings();
+    const entry = listings.find((l) => l.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
+
+    const pieces = await extractPlanRooms(imageBase64, mimeType);
+
+    const travauxDetail = {
+      ...(entry.project.travauxDetail || {}),
+      planImageBase64: imageBase64,
+      planMimeType: mimeType,
+      pieces
+    };
+
+    const mergedProject = { ...entry.project, travauxDetail };
+    const updated = await updateListing(req.params.id, { project: mergedProject });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible de lire ce plan.", details: err.message });
+  }
+});
+
+// Met à jour le chiffrage travaux (pièces + forfaits), recalcule le total,
+// et répercute ce total sur le montant "Travaux" de l'analyse principale.
+app.patch("/api/listings/:id/travaux", async (req, res) => {
+  try {
+    const { pieces, forfaits } = req.body;
+
+    const listings = await readListings();
+    const entry = listings.find((l) => l.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
+
+    const { total, detail } = computeTotalTravaux({ pieces: pieces || [], forfaits: forfaits || {} });
+
+    const travauxDetail = { ...(entry.project.travauxDetail || {}), pieces, forfaits, detail, total };
+    const mergedProject = { ...entry.project, travauxDetail, travaux: total };
+    mergedProject.sources = { ...(entry.project.sources || {}), travaux: "chiffrage" };
+
+    const financials = computeFullMetrics({ listing: entry.listing, sector: entry.sector, project: mergedProject });
+
+    const updated = await updateListing(req.params.id, { project: mergedProject, financials });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible d'enregistrer ce chiffrage.", details: err.message });
   }
 });
 

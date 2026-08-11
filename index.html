@@ -201,6 +201,7 @@
     display:block; margin-top:14px; font-size:12.5px; color:var(--gold);
     text-decoration:underline; text-underline-offset:2px;
   }
+  .travaux-link{ color:var(--market); }
 
   /* ===== VUE TABLEAU ===== */
   .table-wrap{
@@ -448,6 +449,7 @@ function renderCards(list){
         ${rentBlock(l)}
         ${marketBar(l)}
         ${l.listing.url ? `<a class="card-footer-link" href="${l.listing.url}" target="_blank" rel="noopener">Voir l'annonce d'origine →</a>` : ''}
+        <a class="card-footer-link travaux-link" href="travaux.html?id=${l.id}">🛠 Chiffrer les travaux →</a>
       </div>
     </div>
   `).join('');
@@ -480,7 +482,7 @@ const TABLE_COLUMNS = [
   "Charges total/mois", "Charges total/an",
   "Taux crédit %/an", "Crédit mensuel (25 ans)",
   "Taux assur. emprunteur %/an", "Assur. emprunteur/mois",
-  "Rentabilité brute", "Rentabilité nette", "Cash flow mensuel", "SCORE", ""
+  "Rentabilité brute", "Rentabilité nette", "Cash flow mensuel", "SCORE", "Travaux", ""
 ];
 
 function renderTable(list){
@@ -520,6 +522,7 @@ function renderTable(list){
       <td class="col-computed">${f.rentabiliteNette !== null ? f.rentabiliteNette.toFixed(2)+'%' : '—'}</td>
       <td class="col-computed" style="color:${f.cashFlowMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(f.cashFlowMensuel)}</td>
       <td class="col-score" style="color:${scoreColor(f.score)}">${f.score}</td>
+      <td><a class="table-link" href="travaux.html?id=${l.id}" title="Chiffrer les travaux">🛠</a></td>
       <td><button class="table-delete" onclick="removeListing('${l.id}')">✕</button></td>
     </tr>`;
   }).join('');
@@ -534,11 +537,12 @@ function renderTable(list){
   const footer = list.length ? `
     <tfoot><tr>
       <td>Moyennes / Totaux</td>
-      <td colspan="24"></td>
+      <td colspan="25"></td>
       <td class="col-computed">${avgBrut.toFixed(2)}%</td>
       <td class="col-computed">${avgNette.toFixed(2)}%</td>
       <td class="col-computed" style="color:${totalCashflow >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(totalCashflow)} (total)</td>
       <td class="col-score">${Math.round(avgScore)}</td>
+      <td></td>
       <td></td>
     </tr></tfoot>` : '';
 

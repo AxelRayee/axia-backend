@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AxIA — Chiffrage des travaux</title>
+<style>
+  :root{
+    --bg:#0b0c0e; --bg-elevated:#141618; --bg-soft:#1b1d20;
+    --ink:#f3f2ee; --ink-soft:#93938e;
+    --gold:#c9a24a; --gold-soft:rgba(201,162,74,0.14);
+    --market:#5b8fb0; --market-soft:rgba(91,143,176,0.16);
+    --green:#4caf74; --green-soft:rgba(76,175,116,0.14);
+    --red:#e0645a; --red-soft:rgba(224,100,90,0.14);
+    --line:rgba(255,255,255,0.09);
+    --radius:20px; --radius-sm:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  a{color:inherit; text-decoration:none;}
+
+  nav{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 32px; background:rgba(11,12,14,0.75);
+    backdrop-filter:saturate(180%) blur(20px); border-bottom:1px solid var(--line);
+  }
+  .logo{ font-size:19px; font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:2px; }
+  .logo span{color:var(--gold);}
+  .back-link{ font-size:14px; color:var(--ink-soft); }
+  .back-link:hover{ color:var(--ink); }
+
+  .container{ max-width:1000px; margin:0 auto; padding:40px 24px 80px; }
+  h1{ font-size:32px; font-weight:700; letter-spacing:-0.02em; margin:0 0 6px; }
+  .subtitle{ color:var(--ink-soft); font-size:15px; margin:0 0 32px; }
+
+  .panel{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius);
+    padding:24px; margin-bottom:24px;
+  }
+  .panel h2{ font-size:18px; font-weight:700; margin:0 0 4px; }
+  .panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px; }
+
+  .upload-zone{
+    border:2px dashed var(--line); border-radius:var(--radius-sm);
+    padding:32px; text-align:center; cursor:pointer; transition:border-color .15s ease;
+  }
+  .upload-zone:hover{ border-color:var(--gold); }
+  .upload-zone input{ display:none; }
+  .upload-zone .icon{ font-size:32px; margin-bottom:8px; }
+  .plan-preview{ max-width:100%; border-radius:var(--radius-sm); margin-top:16px; border:1px solid var(--line); }
+
+  .btn-primary{
+    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
+    padding:11px 22px; font-size:14px; font-weight:700; cursor:pointer; transition:filter .15s ease;
+  }
+  .btn-primary:hover{ filter:brightness(1.1); }
+  .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
+  .btn-secondary{
+    background:var(--bg-soft); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .btn-secondary:hover{ border-color:var(--gold); color:var(--gold); }
+
+  table.rooms-table{ width:100%; border-collapse:collapse; margin-top:16px; font-size:13.5px; }
+  table.rooms-table th, table.rooms-table td{ padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
+  table.rooms-table th{ color:var(--ink-soft); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; }
+  .cell-input{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
+    padding:6px 8px; font-size:13px; color:var(--ink); font-family:inherit; width:80px;
+  }
+  .cell-input.wide{ width:130px; }
+  .cell-input:focus{ outline:none; border-color:var(--gold); }
+  select.trade-select{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
+    padding:6px 6px; font-size:12.5px; color:var(--ink); font-family:inherit;
+  }
+  .remove-room{ background:transparent; border:none; color:var(--ink-soft); cursor:pointer; font-size:14px; }
+  .remove-room:hover{ color:var(--red); }
+
+  .forfait-row{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:12px 0; border-bottom:1px solid var(--line);
+  }
+  .forfait-row:last-child{ border-bottom:none; }
+  .forfait-row .label{ min-width:160px; font-weight:600; font-size:14px; }
+  .forfait-row select, .forfait-row input{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
+    padding:7px 10px; font-size:13px; color:var(--ink); font-family:inherit;
+  }
+
+  .total-bar{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--gold-soft); border:1px solid rgba(201,162,74,0.3); border-radius:var(--radius-sm);
+    padding:18px 24px; margin-top:8px;
+  }
+  .total-bar .label{ font-size:14px; color:var(--ink-soft); }
+  .total-bar .value{ font-size:28px; font-weight:700; color:var(--gold); }
+
+  .disclaimer{
+    font-size:12.5px; color:var(--ink-soft); background:var(--bg-soft);
+    border-radius:var(--radius-sm); padding:14px 16px; margin-top:16px; line-height:1.6;
+  }
+  .status-msg{ font-size:13.5px; margin-top:12px; padding:10px 14px; border-radius:var(--radius-sm); }
+  .status-msg.ok{ background:var(--green-soft); color:var(--green); }
+  .status-msg.err{ background:var(--red-soft); color:var(--red); }
+  .spinner{ display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.2); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Ax<span>IA</span></div>
+  <a class="back-link" href="index.html">← Retour aux analyses</a>
+</nav>
+
+<div class="container">
+  <h1 id="pageTitle">Chiffrage des travaux</h1>
+  <p class="subtitle" id="pageSubtitle">Chargement de l'annonce...</p>
+
+  <div class="panel">
+    <h2>1. Le plan du logement</h2>
+    <p class="hint">Idéalement, un plan avec les surfaces déjà indiquées par pièce (et si possible le périmètre des murs + la hauteur sous plafond). AxIA lit ces chiffres — il ne mesure jamais lui-même sur l'image.</p>
+    <div class="upload-zone" onclick="document.getElementById('planInput').click()">
+      <div class="icon">📐</div>
+      <div>Cliquez pour choisir un plan (image ou PDF)</div>
+      <input type="file" id="planInput" accept="image/*,application/pdf" onchange="handlePlanUpload(event)">
+    </div>
+    <div id="planStatus"></div>
+    <img id="planPreview" class="plan-preview" style="display:none;">
+  </div>
+
+  <div class="panel">
+    <h2>2. Les pièces</h2>
+    <p class="hint">Surfaces lues automatiquement si le plan les indiquait — sinon, ajoutez et complétez les pièces à la main. Cochez les postes de travaux concernés par pièce.</p>
+    <table class="rooms-table" id="roomsTable">
+      <thead><tr>
+        <th>Pièce</th><th>Surface sol (m²)</th><th>Long. murs (m)</th><th>Hauteur (m)</th>
+        <th>Peinture</th><th>Sol</th><th>Électricité</th><th>Plomberie</th><th></th>
+      </tr></thead>
+      <tbody id="roomsBody"></tbody>
+    </table>
+    <button class="btn-secondary" style="margin-top:14px;" onclick="addRoom()">+ Ajouter une pièce</button>
+  </div>
+
+  <div class="panel">
+    <h2>3. Cuisine, salle de bain, gros travaux, menuiseries</h2>
+    <p class="hint">Ces postes ne sont pas liés à une pièce du plan — cochez ce qui concerne votre projet.</p>
+
+    <div class="forfait-row">
+      <span class="label">🍳 Cuisine complète</span>
+      <select id="cuisineNiveau" onchange="recalcule()">
+        <option value="">Non concerné</option>
+        <option value="basique">Basique (~4 000€ - ~2 500€)</option>
+        <option value="moyenne">Moyenne gamme (~8 000€ - ~5 000€)</option>
+        <option value="haut_de_gamme">Haut de gamme (~15 000€ - ~9 000€)</option>
+      </select>
+      <select id="cuisineMode" onchange="recalcule()">
+        <option value="artisan">Avec artisan (pose + fourniture)</option>
+        <option value="fourniture">Fourniture seule (vous posez)</option>
+      </select>
+    </div>
+
+    <div class="forfait-row">
+      <span class="label">🚿 Salle de bain complète</span>
+      <select id="sdbNiveau" onchange="recalcule()">
+        <option value="">Non concerné</option>
+        <option value="basique">Basique (~5 000€ - ~2 800€)</option>
+        <option value="moyenne">Moyenne gamme (~8 500€ - ~4 700€)</option>
+        <option value="haut_de_gamme">Haut de gamme (~14 000€ - ~7 700€)</option>
+      </select>
+      <select id="sdbMode" onchange="recalcule()">
+        <option value="artisan">Avec artisan (pose + fourniture)</option>
+        <option value="fourniture">Fourniture seule (vous posez)</option>
+      </select>
+    </div>
+
+    <div class="forfait-row">
+      <span class="label">🧱 Isolation</span>
+      <input type="number" id="isolationSurface" placeholder="Surface m²" onchange="recalcule()" style="width:100px;">
+      <select id="isolationMode" onchange="recalcule()">
+        <option value="">Non concerné</option>
+        <option value="artisan">Avec artisan</option>
+        <option value="fourniture">Fourniture seule</option>
+      </select>
+    </div>
+
+    <div class="forfait-row">
+      <span class="label">🏠 Toiture</span>
+      <input type="number" id="toitureSurface" placeholder="Surface m²" onchange="recalcule()" style="width:100px;">
+      <select id="toitureMode" onchange="recalcule()">
+        <option value="">Non concerné</option>
+        <option value="artisan">Avec artisan</option>
+        <option value="fourniture">Fourniture seule</option>
+      </select>
+    </div>
+
+    <div class="forfait-row">
+      <span class="label">🚧 Cloisons (ouverture/création)</span>
+      <input type="number" id="cloisonsSurface" placeholder="Surface m²" onchange="recalcule()" style="width:100px;">
+      <select id="cloisonsMode" onchange="recalcule()">
+        <option value="">Non concerné</option>
+        <option value="artisan">Avec artisan</option>
+        <option value="fourniture">Fourniture seule</option>
+      </select>
+    </div>
+
+    <div class="forfait-row">
+      <span class="label">🪟 Menuiseries (fenêtres/portes)</span>
+      <input type="number" id="menuiseriesQte" placeholder="Quantité" onchange="recalcule()" style="width:90px;">
+      <select id="menuiseriesMode" onchange="recalcule()">
+        <option value="">Non concerné</option>
+        <option value="artisan">Avec artisan</option>
+        <option value="fourniture">Fourniture seule</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Estimation totale</h2>
+    <div class="total-bar">
+      <span class="label">Coût total des travaux estimé</span>
+      <span class="value" id="totalValue">0 €</span>
+    </div>
+    <div class="disclaimer">
+      ⚠️ Ces prix sont des <b>moyennes de marché indicatives</b> (sources FFB, CAPEB, comparatifs professionnels 2026), pas des devis réels. Le coût final dépend de votre région, de l'état du logement et des matériaux choisis. Faites toujours établir de vrais devis avant d'engager des travaux.
+    </div>
+    <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
+      <button class="btn-primary" onclick="saveTravaux()" id="saveBtn">Enregistrer ce chiffrage</button>
+      <span id="saveStatus"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const listingId = params.get('id');
+let rooms = [];
+let listingData = null;
+
+if(!listingId){
+  document.getElementById('pageSubtitle').textContent = "Aucune annonce sélectionnée. Retournez à la liste des analyses.";
+}
+
+async function loadListing(){
+  try {
+    const response = await fetch(`/api/listings/${listingId}`);
+    if(!response.ok) throw new Error("Analyse introuvable");
+    listingData = await response.json();
+
+    document.getElementById('pageTitle').textContent = `Travaux — ${listingData.label}`;
+    document.getElementById('pageSubtitle').textContent = `${listingData.listing.ville || ''} • ${listingData.listing.surface || '?'} m²`;
+
+    const detail = listingData.project.travauxDetail;
+    if(detail?.pieces?.length) rooms = detail.pieces;
+    if(detail?.planImageBase64 && detail.planMimeType?.startsWith('image/')){
+      const img = document.getElementById('planPreview');
+      img.src = `data:${detail.planMimeType};base64,${detail.planImageBase64}`;
+      img.style.display = 'block';
+    }
+    if(detail?.forfaits) applyForfaitsToForm(detail.forfaits);
+
+    renderRooms();
+    recalcule();
+  } catch(err) {
+    document.getElementById('pageSubtitle').textContent = "Erreur : " + err.message;
+  }
+}
+
+function applyForfaitsToForm(f){
+  if(f.cuisine){ document.getElementById('cuisineNiveau').value = f.cuisine.niveau || ''; document.getElementById('cuisineMode').value = f.cuisine.mode || 'artisan'; }
+  if(f.salle_de_bain){ document.getElementById('sdbNiveau').value = f.salle_de_bain.niveau || ''; document.getElementById('sdbMode').value = f.salle_de_bain.mode || 'artisan'; }
+  if(f.isolation){ document.getElementById('isolationSurface').value = f.isolation.surfaceM2 || ''; document.getElementById('isolationMode').value = f.isolation.mode || ''; }
+  if(f.toiture){ document.getElementById('toitureSurface').value = f.toiture.surfaceM2 || ''; document.getElementById('toitureMode').value = f.toiture.mode || ''; }
+  if(f.cloisons){ document.getElementById('cloisonsSurface').value = f.cloisons.surfaceM2 || ''; document.getElementById('cloisonsMode').value = f.cloisons.mode || ''; }
+  if(f.menuiseries){ document.getElementById('menuiseriesQte').value = f.menuiseries.quantite || ''; document.getElementById('menuiseriesMode').value = f.menuiseries.mode || ''; }
+}
+
+function tradeSelect(room, idx, poste){
+  const val = room.postes?.[poste] || '';
+  return `<select class="trade-select" onchange="setPoste(${idx}, '${poste}', this.value)">
+    <option value="" ${val===''?'selected':''}>—</option>
+    <option value="artisan" ${val==='artisan'?'selected':''}>Artisan</option>
+    <option value="fourniture" ${val==='fourniture'?'selected':''}>Vous-même</option>
+  </select>`;
+}
+
+function renderRooms(){
+  const body = document.getElementById('roomsBody');
+  body.innerHTML = rooms.map((r, idx) => `
+    <tr>
+      <td><input class="cell-input wide" value="${(r.nom||'').replace(/"/g,'&quot;')}" onchange="updateRoom(${idx},'nom',this.value)"></td>
+      <td><input type="number" class="cell-input" value="${r.surfaceSol ?? ''}" onchange="updateRoom(${idx},'surfaceSol',parseFloat(this.value)||0)"></td>
+      <td><input type="number" class="cell-input" value="${r.longueurMurs ?? ''}" onchange="updateRoom(${idx},'longueurMurs',parseFloat(this.value)||0)"></td>
+      <td><input type="number" class="cell-input" value="${r.hauteur ?? 2.5}" step="0.1" onchange="updateRoom(${idx},'hauteur',parseFloat(this.value)||2.5)"></td>
+      <td>${tradeSelect(r, idx, 'peinture')}</td>
+      <td>${tradeSelect(r, idx, 'sol')}</td>
+      <td>${tradeSelect(r, idx, 'electricite')}</td>
+      <td>${tradeSelect(r, idx, 'plomberie')}</td>
+      <td><button class="remove-room" onclick="removeRoom(${idx})">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function updateRoom(idx, field, value){
+  rooms[idx][field] = value;
+  if(field === 'longueurMurs' || field === 'hauteur'){
+    rooms[idx].surfaceMurs = Math.round((rooms[idx].longueurMurs || 0) * (rooms[idx].hauteur || 2.5) * 10) / 10;
+  }
+  recalcule();
+}
+function setPoste(idx, poste, value){
+  if(!rooms[idx].postes) rooms[idx].postes = {};
+  if(value) rooms[idx].postes[poste] = value; else delete rooms[idx].postes[poste];
+  recalcule();
+}
+function addRoom(){
+  rooms.push({ nom: 'Nouvelle pièce', surfaceSol: null, longueurMurs: null, hauteur: 2.5, surfaceMurs: null, postes: {} });
+  renderRooms();
+}
+function removeRoom(idx){
+  rooms.splice(idx, 1);
+  renderRooms();
+  recalcule();
+}
+
+// Barème de prix, dupliqué côté client pour un calcul instantané (source de vérité : travauxPrix.js côté serveur)
+const PRIX_PAR_M2 = {
+  peinture: { artisan: 45, fourniture: 8, base: "murs+plafond" },
+  sol: { artisan: 75, fourniture: 25, base: "sol" },
+  electricite: { artisan: 100, fourniture: 35, base: "sol" },
+  plomberie: { artisan: 80, fourniture: 25, base: "sol" }
+};
+const PRIX_GROS_TRAVAUX_M2 = {
+  isolation: { artisan: 110, fourniture: 40 },
+  toiture: { artisan: 130, fourniture: 50 },
+  cloisons: { artisan: 120, fourniture: 40 }
+};
+const FORFAITS = {
+  cuisine: { basique: { artisan: 4000, fourniture: 2500 }, moyenne: { artisan: 8000, fourniture: 5000 }, haut_de_gamme: { artisan: 15000, fourniture: 9000 } },
+  salle_de_bain: { basique: { artisan: 5000, fourniture: 2800 }, moyenne: { artisan: 8500, fourniture: 4700 }, haut_de_gamme: { artisan: 14000, fourniture: 7700 } }
+};
+const PRIX_MENUISERIE_UNITE = { artisan: 650, fourniture: 350 };
+
+function getForfaits(){
+  return {
+    cuisine: { niveau: document.getElementById('cuisineNiveau').value, mode: document.getElementById('cuisineMode').value },
+    salle_de_bain: { niveau: document.getElementById('sdbNiveau').value, mode: document.getElementById('sdbMode').value },
+    isolation: { surfaceM2: parseFloat(document.getElementById('isolationSurface').value)||0, mode: document.getElementById('isolationMode').value },
+    toiture: { surfaceM2: parseFloat(document.getElementById('toitureSurface').value)||0, mode: document.getElementById('toitureMode').value },
+    cloisons: { surfaceM2: parseFloat(document.getElementById('cloisonsSurface').value)||0, mode: document.getElementById('cloisonsMode').value },
+    menuiseries: { quantite: parseFloat(document.getElementById('menuiseriesQte').value)||0, mode: document.getElementById('menuiseriesMode').value }
+  };
+}
+
+function computeTotal(){
+  let total = 0;
+  for(const room of rooms){
+    for(const poste of Object.keys(PRIX_PAR_M2)){
+      const mode = room.postes?.[poste];
+      if(!mode) continue;
+      const ref = PRIX_PAR_M2[poste];
+      const surface = ref.base === "murs+plafond" ? (room.surfaceMurs||0)+(room.surfaceSol||0) : (room.surfaceSol||0);
+      total += surface * ref[mode];
+    }
+  }
+  const f = getForfaits();
+  if(f.cuisine.niveau) total += FORFAITS.cuisine[f.cuisine.niveau][f.cuisine.mode];
+  if(f.salle_de_bain.niveau) total += FORFAITS.salle_de_bain[f.salle_de_bain.niveau][f.salle_de_bain.mode];
+  if(f.isolation.mode && f.isolation.surfaceM2) total += f.isolation.surfaceM2 * PRIX_GROS_TRAVAUX_M2.isolation[f.isolation.mode];
+  if(f.toiture.mode && f.toiture.surfaceM2) total += f.toiture.surfaceM2 * PRIX_GROS_TRAVAUX_M2.toiture[f.toiture.mode];
+  if(f.cloisons.mode && f.cloisons.surfaceM2) total += f.cloisons.surfaceM2 * PRIX_GROS_TRAVAUX_M2.cloisons[f.cloisons.mode];
+  if(f.menuiseries.mode && f.menuiseries.quantite) total += f.menuiseries.quantite * PRIX_MENUISERIE_UNITE[f.menuiseries.mode];
+  return Math.round(total);
+}
+
+function recalcule(){
+  document.getElementById('totalValue').textContent = computeTotal().toLocaleString('fr-FR') + ' €';
+}
+
+async function handlePlanUpload(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('planStatus');
+  statusEl.innerHTML = '<div class="status-msg ok"><span class="spinner"></span>Lecture du plan en cours...</div>';
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+    if(file.type.startsWith('image/')){
+      const img = document.getElementById('planPreview');
+      img.src = reader.result;
+      img.style.display = 'block';
+    }
+    try {
+      const response = await fetch(`/api/listings/${listingId}/plan`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ imageBase64: base64, mimeType: file.type })
+      });
+      if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
+      const updated = await response.json();
+      const newPieces = updated.project.travauxDetail?.pieces || [];
+      if(newPieces.length){
+        rooms = newPieces;
+        renderRooms();
+        recalcule();
+        statusEl.innerHTML = `<div class="status-msg ok">✓ ${newPieces.length} pièce(s) lue(s) sur le plan. Vérifiez les valeurs ci-dessous.</div>`;
+      } else {
+        statusEl.innerHTML = `<div class="status-msg err">Le plan a été chargé, mais aucune mesure exploitable n'a été trouvée dessus. Ajoutez les pièces manuellement ci-dessous.</div>`;
+      }
+    } catch(err) {
+      statusEl.innerHTML = `<div class="status-msg err">Erreur : ${err.message}</div>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveTravaux(){
+  const btn = document.getElementById('saveBtn');
+  const statusEl = document.getElementById('saveStatus');
+  btn.disabled = true;
+  statusEl.textContent = 'Enregistrement...';
+  try {
+    const response = await fetch(`/api/listings/${listingId}/travaux`, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ pieces: rooms, forfaits: getForfaits() })
+    });
+    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
+    statusEl.innerHTML = '<span style="color:var(--green)">✓ Chiffrage enregistré — le montant "Travaux" de l\'analyse a été mis à jour.</span>';
+  } catch(err) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Erreur : ${err.message}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+if(listingId) loadListing();
+</script>
+
+</body>
+</html>
