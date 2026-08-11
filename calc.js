@@ -1,13 +1,13 @@
-// Ce module calcule tous les indicateurs financiers d'un projet d'investissement :
-// coût total, charges, mensualité de crédit, rentabilité brute/nette, cash-flow, score.
+// Calcule tous les indicateurs financiers d'un projet d'investissement.
 
-// Taux de crédit immobilier moyen en France sur 25 ans, à titre de valeur par défaut
-// (sources : Pretto, CAFPI, Meilleurtaux — août 2026). Modifiable par annonce dans l'interface.
-export const TAUX_CREDIT_DEFAUT = 3.45;
+// Taux moyens du marché français (sources : Pretto, CAFPI, Meilleurtaux, Magnolia — août 2026).
+// Modifiables par annonce dans l'interface.
+export const TAUX_CREDIT_DEFAUT = 3.45;              // % annuel, crédit sur 25 ans
+export const TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT = 0.34; // % annuel du capital emprunté (TAEA moyen marché)
 const DUREE_CREDIT_ANNEES = 25;
 
 /**
- * Calcule la mensualité d'un prêt à taux fixe (formule d'amortissement classique).
+ * Calcule la mensualité d'un prêt à taux fixe (hors assurance), formule d'amortissement classique.
  */
 export function computeMensualite(capital, tauxAnnuelPct, dureeAnnees = DUREE_CREDIT_ANNEES) {
   if (!capital || capital <= 0) return 0;
@@ -19,12 +19,14 @@ export function computeMensualite(capital, tauxAnnuelPct, dureeAnnees = DUREE_CR
 }
 
 /**
- * Calcule tous les indicateurs financiers d'une analyse : coût total du projet,
- * charges, mensualité de crédit, rentabilité brute et nette, cash-flow, score global.
+ * Calcule tous les indicateurs financiers d'une analyse.
  *
- * @param {object} listing - infos du bien (prix, surface...)
- * @param {object|null} sector - stats DVF du secteur (min/moyenne/max au m²)
- * @param {object} project - paramètres financiers saisis par l'investisseur
+ * IMPORTANT sur les conventions utilisées :
+ * - La rentabilité (brute et nette) porte sur le bien lui-même : elle NE tient PAS compte
+ *   du financement (crédit, assurance emprunteur). C'est la convention standard en immobilier,
+ *   qui permet de comparer des biens indépendamment de la façon dont vous les financez.
+ * - Le cash-flow, lui, tient compte de TOUT : c'est ce qu'il vous reste réellement en poche
+ *   chaque mois, crédit et assurance emprunteur inclus.
  */
 export function computeFullMetrics({ listing, sector, project }) {
   const prix = listing.prix || 0;
@@ -38,9 +40,10 @@ export function computeFullMetrics({ listing, sector, project }) {
   const loyerMensuel = project.monthlyRent || 0;
   const loyerAnnuel = loyerMensuel * 12;
 
+  const taxeFonciereMensuelle = (project.taxeFonciereAnnuelle || 0) / 12;
   const chargesTotalMensuel =
-    (project.taxeFonciereMensuel || 0) +
-    (project.chargesMensuelles || 0) +
+    taxeFonciereMensuelle +
+    (project.chargesCoproMensuelles || 0) +
     (project.assurancePNO || 0) +
     (project.gestionMensuelle || 0);
   const chargesTotalAnnuel = chargesTotalMensuel * 12;
@@ -48,14 +51,20 @@ export function computeFullMetrics({ listing, sector, project }) {
   const tauxCredit = project.tauxCredit ?? TAUX_CREDIT_DEFAUT;
   const creditMensuel = computeMensualite(totalProjet, tauxCredit);
 
+  const tauxAssuranceEmprunteur = project.tauxAssuranceEmprunteur ?? TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT;
+  const assuranceEmprunteurMensuelle = totalProjet > 0
+    ? Math.round(totalProjet * (tauxAssuranceEmprunteur / 100) / 12)
+    : 0;
+
   const rentabiliteBrut = totalProjet > 0 ? +((loyerAnnuel / totalProjet) * 100).toFixed(2) : null;
   const rentabiliteNette = totalProjet > 0 ? +(((loyerAnnuel - chargesTotalAnnuel) / totalProjet) * 100).toFixed(2) : null;
-  const cashFlowMensuel = Math.round(loyerMensuel - chargesTotalMensuel - creditMensuel);
+
+  const cashFlowMensuel = Math.round(loyerMensuel - chargesTotalMensuel - creditMensuel - assuranceEmprunteurMensuelle);
 
   const ecartMarche = sector && prixM2 ? +(((prixM2 - sector.avg) / sector.avg) * 100).toFixed(1) : null;
 
-  // Score global sur 100 : combine rentabilité nette, cash-flow, et écart au marché.
-  // Base neutre à 50, ajustée par ces trois facteurs. À affiner selon vos propres critères.
+  // Score global sur 100 : rentabilité nette (jusqu'à 30 pts), signe du cash-flow (±10-15 pts),
+  // position par rapport au marché du secteur (jusqu'à ±15 pts). Base neutre à 50.
   let score = 50;
   if (rentabiliteNette !== null) score += Math.max(-25, Math.min(30, rentabiliteNette * 3));
   score += cashFlowMensuel >= 0 ? 10 : -15;
@@ -69,6 +78,7 @@ export function computeFullMetrics({ listing, sector, project }) {
     chargesTotalMensuel,
     chargesTotalAnnuel,
     creditMensuel,
+    assuranceEmprunteurMensuelle,
     rentabiliteBrut,
     rentabiliteNette,
     cashFlowMensuel,

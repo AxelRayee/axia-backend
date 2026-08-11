@@ -226,6 +226,11 @@
     padding:5px 7px; font-size:13px; color:var(--ink); font-family:inherit;
   }
   .table-input:focus{ outline:none; border-color:var(--gold); }
+  .table-input.cell-missing{ border-color:var(--red); background:rgba(224,100,90,0.08); }
+  .cell-missing-static{ color:var(--red); background:rgba(224,100,90,0.08); }
+  .src-badge{ font-size:10px; margin-left:2px; display:inline-block; }
+  .src-badge.est{ color:var(--market); }
+  .src-badge.ok{ color:var(--green); }
   .col-computed{ color:var(--ink-soft); }
   .col-score{ font-weight:700; }
   .table-link{ color:var(--gold); text-decoration:underline; font-size:12.5px; }
@@ -452,11 +457,18 @@ function renderCards(list){
 function numCell(l, group, field, opts){
   opts = opts || {};
   const value = group === 'project' ? l.project[field] : l.listing[field];
-  return `<input type="number" class="table-input" style="width:${opts.width||'85px'}" value="${value ?? 0}" step="${opts.step||1}" onchange="updateField('${l.id}','${group}','${field}',this.value,true)">`;
+  const missing = opts.missing ? ' cell-missing' : '';
+  return `<input type="number" class="table-input${missing}" style="width:${opts.width||'85px'}" value="${value ?? 0}" step="${opts.step||1}" onchange="updateField('${l.id}','${group}','${field}',this.value,true)">`;
 }
-function textCell(l, group, field, width){
+function textCell(l, group, field, width, missing){
   const value = group === 'root' ? (l[field] ?? '') : (group === 'project' ? l.project[field] : l.listing[field]);
-  return `<input type="text" class="table-input" style="width:${width||'140px'}" value="${(value ?? '').toString().replace(/"/g,'&quot;')}" onchange="updateField('${l.id}','${group}','${field}',this.value,false)">`;
+  const cls = missing ? ' cell-missing' : '';
+  return `<input type="text" class="table-input${cls}" style="width:${width||'140px'}" value="${(value ?? '').toString().replace(/"/g,'&quot;')}" onchange="updateField('${l.id}','${group}','${field}',this.value,false)">`;
+}
+function estBadge(source){
+  if(source === 'estimation') return '<span class="src-badge est" title="Estimation automatique">≈</span>';
+  if(source === 'annonce') return '<span class="src-badge ok" title="Trouvé dans l\'annonce">✓</span>';
+  return '';
 }
 
 const TABLE_COLUMNS = [
@@ -464,9 +476,10 @@ const TABLE_COLUMNS = [
   "Prix FAI", "Prix/m²", "Écart marché", "DPE",
   "Travaux", "Frais de notaire", "Total projet",
   "Loyer mensuel", "Loyer annuel",
-  "Taxe foncière/mois", "Charges/mois", "Assurance PNO", "Gestion",
+  "Taxe foncière/an", "Charges copro/mois", "Assurance PNO/mois", "Gestion/mois",
   "Charges total/mois", "Charges total/an",
-  "Taux crédit %", "Crédit mensuel (25 ans)",
+  "Taux crédit %/an", "Crédit mensuel (25 ans)",
+  "Taux assur. emprunteur %/an", "Assur. emprunteur/mois",
   "Rentabilité brute", "Rentabilité nette", "Cash flow mensuel", "SCORE", ""
 ];
 
@@ -475,32 +488,34 @@ function renderTable(list){
   const headerRow = TABLE_COLUMNS.map(c => `<th>${c}</th>`).join('');
 
   const rows = list.map(l => {
-    const f = l.financials, p = l.project, lst = l.listing;
+    const f = l.financials, p = l.project, lst = l.listing, src = p.sources || {};
     return `<tr>
       <td>${textCell(l, 'root', 'label', '170px')}</td>
-      <td>${textCell(l, 'listing', 'contact', '150px')}</td>
+      <td>${textCell(l, 'listing', 'contact', '150px', !lst.contact)}</td>
       <td>${lst.url ? `<a class="table-link" href="${lst.url}" target="_blank" rel="noopener">Voir</a>` : '—'}</td>
       <td>${lst.ville || '—'}</td>
-      <td>${textCell(l, 'listing', 'quartier', '120px')}</td>
+      <td>${textCell(l, 'listing', 'quartier', '120px', !lst.quartier)}</td>
       <td>${lst.type_bien || '—'}</td>
       <td>${lst.surface ?? '—'}</td>
       <td class="col-computed">${currency(lst.prix)}</td>
       <td class="col-computed">${f.prixM2 ? currency(f.prixM2) : '—'}</td>
       <td class="col-computed">${pct(f.ecartMarche)}</td>
-      <td>${lst.dpe || '—'}</td>
+      <td class="${!lst.dpe ? 'cell-missing-static' : ''}">${lst.dpe || '—'}</td>
       <td>${numCell(l, 'project', 'travaux', {width:'90px', step:500})}</td>
       <td>${numCell(l, 'project', 'fraisNotaire', {width:'95px', step:500})}</td>
       <td class="col-computed">${currency(f.totalProjet)}</td>
-      <td>${numCell(l, 'project', 'monthlyRent', {width:'85px', step:10})}</td>
+      <td>${numCell(l, 'project', 'monthlyRent', {width:'85px', step:10})} ${estBadge(p.rentEstimated ? 'estimation' : 'manuel')}</td>
       <td class="col-computed">${currency(f.loyerAnnuel)}</td>
-      <td>${numCell(l, 'project', 'taxeFonciereMensuel', {width:'80px'})}</td>
-      <td>${numCell(l, 'project', 'chargesMensuelles', {width:'80px'})}</td>
-      <td>${numCell(l, 'project', 'assurancePNO', {width:'80px'})}</td>
-      <td>${numCell(l, 'project', 'gestionMensuelle', {width:'80px'})}</td>
+      <td>${numCell(l, 'project', 'taxeFonciereAnnuelle', {width:'85px', step:50, missing: src.taxeFonciereAnnuelle === 'manquant'})} ${estBadge(src.taxeFonciereAnnuelle)}</td>
+      <td>${numCell(l, 'project', 'chargesCoproMensuelles', {width:'80px', missing: src.chargesCoproMensuelles === 'manquant'})} ${estBadge(src.chargesCoproMensuelles)}</td>
+      <td>${numCell(l, 'project', 'assurancePNO', {width:'75px', missing: src.assurancePNO === 'manquant'})} ${estBadge(src.assurancePNO)}</td>
+      <td>${numCell(l, 'project', 'gestionMensuelle', {width:'75px'})}</td>
       <td class="col-computed">${currency(f.chargesTotalMensuel)}</td>
       <td class="col-computed">${currency(f.chargesTotalAnnuel)}</td>
-      <td>${numCell(l, 'project', 'tauxCredit', {width:'70px', step:0.05})}</td>
+      <td>${numCell(l, 'project', 'tauxCredit', {width:'65px', step:0.05})}</td>
       <td class="col-computed">${currency(f.creditMensuel)}</td>
+      <td>${numCell(l, 'project', 'tauxAssuranceEmprunteur', {width:'65px', step:0.01})}</td>
+      <td class="col-computed">${currency(f.assuranceEmprunteurMensuelle)}</td>
       <td class="col-computed">${f.rentabiliteBrut !== null ? f.rentabiliteBrut.toFixed(2)+'%' : '—'}</td>
       <td class="col-computed">${f.rentabiliteNette !== null ? f.rentabiliteNette.toFixed(2)+'%' : '—'}</td>
       <td class="col-computed" style="color:${f.cashFlowMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(f.cashFlowMensuel)}</td>
@@ -509,7 +524,6 @@ function renderTable(list){
     </tr>`;
   }).join('');
 
-  // Ligne de totaux / moyennes sur les lignes affichées
   const n = list.length || 1;
   const avg = (arr) => arr.reduce((a,b) => a + (b || 0), 0) / n;
   const totalCashflow = list.reduce((a,l) => a + (l.financials.cashFlowMensuel || 0), 0);
@@ -520,7 +534,7 @@ function renderTable(list){
   const footer = list.length ? `
     <tfoot><tr>
       <td>Moyennes / Totaux</td>
-      <td colspan="18"></td>
+      <td colspan="24"></td>
       <td class="col-computed">${avgBrut.toFixed(2)}%</td>
       <td class="col-computed">${avgNette.toFixed(2)}%</td>
       <td class="col-computed" style="color:${totalCashflow >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(totalCashflow)} (total)</td>
@@ -581,8 +595,8 @@ async function loadListings(){
     // Les analyses créées avant la mise à jour du site n'ont pas la nouvelle structure
     // de données (project/financials) : on les retire automatiquement plutôt que de
     // laisser l'affichage planter dessus.
-    const valid = raw.filter(l => l && l.financials && l.project && l.listing);
-    const obsolete = raw.filter(l => !(l && l.financials && l.project && l.listing));
+    const valid = raw.filter(l => l && l.financials && l.project && l.listing && l.project.sources);
+    const obsolete = raw.filter(l => !(l && l.financials && l.project && l.listing && l.project.sources));
 
     if (obsolete.length > 0) {
       await Promise.all(obsolete.map(l => fetch(`/api/listings/${l.id}`, { method: 'DELETE' }).catch(() => {})));
@@ -697,14 +711,16 @@ function exportExcel(){
     "Total projet": l.financials.totalProjet || 0,
     "Loyer Mensuel": l.project.monthlyRent || 0,
     "Loyer annuel": l.financials.loyerAnnuel || 0,
-    "Taxe foncière mensuel": l.project.taxeFonciereMensuel || 0,
-    "Charges mensuelles": l.project.chargesMensuelles || 0,
-    "Assurance PNO": l.project.assurancePNO || 0,
-    "Gestion": l.project.gestionMensuelle || 0,
+    "Taxe foncière annuelle": l.project.taxeFonciereAnnuelle || 0,
+    "Charges copro mensuelles": l.project.chargesCoproMensuelles || 0,
+    "Assurance PNO mensuelle": l.project.assurancePNO || 0,
+    "Gestion mensuelle": l.project.gestionMensuelle || 0,
     "Charges total mensuel": l.financials.chargesTotalMensuel || 0,
     "Charges total annuel": l.financials.chargesTotalAnnuel || 0,
     "Taux crédit %": l.project.tauxCredit || 0,
     "Crédit mensuel": l.financials.creditMensuel || 0,
+    "Taux assurance emprunteur %": l.project.tauxAssuranceEmprunteur || 0,
+    "Assurance emprunteur mensuelle": l.financials.assuranceEmprunteurMensuelle || 0,
     "Rentabilité brute %": l.financials.rentabiliteBrut ?? '',
     "Rentabilité nette %": l.financials.rentabiliteNette ?? '',
     "Cash flow mensuel": l.financials.cashFlowMensuel || 0,

@@ -79,6 +79,8 @@ export async function extractListingFromUrl(input) {
   "pieces": nombre ou null,
   "dpe": lettre A à G ou null,
   "contact": chaîne de caractères ou null (nom de l'agence, du contact, ou numéro de téléphone si mentionné),
+  "taxe_fonciere_annuelle": nombre ou null (UNIQUEMENT si le montant annuel de la taxe foncière est explicitement mentionné dans l'annonce),
+  "charges_copro_mensuelles": nombre ou null (UNIQUEMENT si des charges de copropriété mensuelles sont explicitement mentionnées, hors eau/électricité/chauffage individuels),
   "resume": courte phrase résumant le bien
 }
 

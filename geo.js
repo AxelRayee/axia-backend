@@ -1,13 +1,9 @@
-// Ce petit module convertit une ville en "code INSEE" (l'identifiant officiel unique
-// d'une commune française). C'est utilisé à la fois par dvf.js (prix de vente) et
-// rent.js (estimation de loyer), d'où sa mise en commun ici.
+// Convertit une ville en code INSEE (identifiant officiel de commune), et récupère
+// sa population (utilisée pour estimer grossièrement la taxe foncière par taille de ville).
 
-/**
- * Convertit un couple ville/code postal en code INSEE
- */
-export async function getCodeInsee(ville, codePostal) {
+export async function getCommuneInfo(ville, codePostal) {
   try {
-    const params = new URLSearchParams({ fields: "code", limit: "1" });
+    const params = new URLSearchParams({ fields: "code,nom,population", limit: "1" });
     if (ville) params.set("nom", ville);
     if (codePostal) params.set("codePostal", codePostal);
 
@@ -15,9 +11,18 @@ export async function getCodeInsee(ville, codePostal) {
     const response = await fetch(url);
     if (!response.ok) return null;
     const data = await response.json();
-    return data[0]?.code || null;
+    if (!data[0]) return null;
+    return { code: data[0].code, nom: data[0].nom, population: data[0].population || 0 };
   } catch (e) {
     console.error("Erreur geo.api.gouv.fr :", e.message);
     return null;
   }
+}
+
+/**
+ * Conservé pour compatibilité : renvoie uniquement le code INSEE (utilisé par dvf.js, rent.js).
+ */
+export async function getCodeInsee(ville, codePostal) {
+  const info = await getCommuneInfo(ville, codePostal);
+  return info?.code || null;
 }
