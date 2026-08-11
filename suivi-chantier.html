@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AxIA — Suivi de chantier</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0c0e; --bg-elevated:#141618; --bg-soft:#1b1d20;
+    --ink:#f3f2ee; --ink-soft:#93938e;
+    --gold:#c9a24a; --gold-soft:rgba(201,162,74,0.14);
+    --market:#5b8fb0; --market-soft:rgba(91,143,176,0.16);
+    --green:#4caf74; --green-soft:rgba(76,175,116,0.14);
+    --red:#e0645a; --red-soft:rgba(224,100,90,0.14);
+    --line:rgba(255,255,255,0.09);
+    --radius:20px; --radius-sm:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  a{color:inherit; text-decoration:none;}
+  nav{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 32px; background:rgba(11,12,14,0.75);
+    backdrop-filter:saturate(180%) blur(20px); border-bottom:1px solid var(--line);
+  }
+  .logo{ font-size:19px; font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:2px; }
+  .logo span{color:var(--gold);}
+  .back-link{ font-size:14px; color:var(--ink-soft); }
+  .back-link:hover{ color:var(--ink); }
+
+  .container{ max-width:1200px; margin:0 auto; padding:40px 24px 80px; }
+  h1{ font-size:32px; font-weight:700; letter-spacing:-0.02em; margin:0 0 6px; }
+  .subtitle{ color:var(--ink-soft); font-size:15px; margin:0 0 32px; }
+
+  .panel{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius);
+    padding:24px; margin-bottom:24px;
+  }
+  .panel h2{ font-size:18px; font-weight:700; margin:0 0 4px; }
+  .panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px; }
+
+  .btn-primary{
+    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
+    padding:11px 22px; font-size:14px; font-weight:700; cursor:pointer; transition:filter .15s ease;
+  }
+  .btn-primary:hover{ filter:brightness(1.1); }
+  .btn-secondary{
+    background:var(--bg-soft); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .btn-secondary:hover{ border-color:var(--gold); color:var(--gold); }
+
+  .init-cta{ text-align:center; padding:40px 20px; }
+  .init-cta .icon{ font-size:36px; margin-bottom:12px; }
+
+  .summary-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
+  @media (max-width: 900px){ .summary-grid{ grid-template-columns:repeat(2,1fr); } }
+  .summary-card{ background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius-sm); padding:18px; }
+  .summary-card .label{ font-size:12px; color:var(--ink-soft); margin-bottom:6px; }
+  .summary-card .value{ font-size:24px; font-weight:700; }
+
+  table.lots-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.lots-table th, table.lots-table td{ padding:10px; border-bottom:1px solid var(--line); text-align:left; }
+  table.lots-table th{ color:var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; }
+  .lot-input{ background:var(--bg-soft); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:13px; color:var(--ink); font-family:inherit; width:90px; }
+  .lot-input.wide{ width:150px; }
+  .lot-input:focus{ outline:none; border-color:var(--gold); }
+  .ecart-pos{ color:var(--red); font-weight:600; }
+  .ecart-neg{ color:var(--green); font-weight:600; }
+  .remove-lot{ background:transparent; border:none; color:var(--ink-soft); cursor:pointer; }
+  .remove-lot:hover{ color:var(--red); }
+
+  .depense-form{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+  .depense-form select, .depense-form input{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; font-size:13.5px; color:var(--ink); font-family:inherit;
+  }
+  .depense-form input[type="text"]{ min-width:160px; }
+
+  table.depenses-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.depenses-table th, table.depenses-table td{ padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
+  table.depenses-table th{ color:var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; }
+  .del-depense{ background:transparent; border:none; color:var(--ink-soft); cursor:pointer; }
+  .del-depense:hover{ color:var(--red); }
+
+  canvas{ max-height:280px; }
+  .status-msg{ font-size:13.5px; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Ax<span>IA</span></div>
+  <a class="back-link" href="index.html">← Retour aux analyses</a>
+</nav>
+
+<div class="container">
+  <h1 id="pageTitle">Suivi de chantier</h1>
+  <p class="subtitle" id="pageSubtitle">Chargement...</p>
+
+  <div id="initZone" class="panel init-cta" style="display:none;">
+    <div class="icon">🏗️</div>
+    <h2>Le budget n'est pas encore figé</h2>
+    <p class="hint">On transforme votre chiffrage travaux en budget de référence par lot. Vous pourrez ensuite l'ajuster librement.</p>
+    <button class="btn-primary" onclick="initChantier()">Geler le budget et démarrer le suivi</button>
+  </div>
+
+  <div id="mainZone" style="display:none;">
+
+    <div class="summary-grid">
+      <div class="summary-card"><div class="label">Budget total figé</div><div class="value" id="sumBudget">0 €</div></div>
+      <div class="summary-card"><div class="label">Dépensé à ce jour</div><div class="value" id="sumDepense">0 €</div></div>
+      <div class="summary-card"><div class="label">Reste à dépenser (RAD)</div><div class="value" id="sumRad">0 €</div></div>
+      <div class="summary-card"><div class="label">Fin de chantier prévisionnel</div><div class="value" id="sumFin">0 €</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Budget par lot</h2>
+      <p class="hint">Le RAD (reste à dépenser) est une estimation que vous ajustez vous-même — il ne se recalcule pas automatiquement, pour que vous puissiez anticiper un dérapage avant la fin du chantier.</p>
+      <table class="lots-table">
+        <thead><tr><th>Lot</th><th>Budget figé</th><th>Dépensé</th><th>RAD (estimé par vous)</th><th>Fin prévisionnel</th><th>Écart</th><th></th></tr></thead>
+        <tbody id="lotsBody"></tbody>
+      </table>
+      <button class="btn-secondary" style="margin-top:14px;" onclick="addLot()">+ Ajouter un lot</button>
+    </div>
+
+    <div class="panel">
+      <h2>Ajouter une dépense</h2>
+      <p class="hint">Détaillez par ligne (ex, lot Plâtrerie : rail, montant, plaque, visserie, laine...).</p>
+      <div class="depense-form">
+        <input type="date" id="depDate">
+        <select id="depLot"></select>
+        <input type="text" id="depLigne" placeholder="Ligne (ex: Plaques BA13)">
+        <input type="number" id="depMontant" placeholder="Montant €">
+        <input type="text" id="depNote" placeholder="Note (facultatif)">
+        <button class="btn-primary" onclick="addDepense()">Ajouter</button>
+      </div>
+      <table class="depenses-table">
+        <thead><tr><th>Date</th><th>Lot</th><th>Ligne</th><th>Montant</th><th>Note</th><th></th></tr></thead>
+        <tbody id="depensesBody"></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Évolution des dépenses</h2>
+      <canvas id="chart"></canvas>
+    </div>
+
+    <div style="display:flex; gap:12px; align-items:center;">
+      <button class="btn-primary" onclick="saveChantier()" id="saveBtn">Enregistrer le suivi</button>
+      <span class="status-msg" id="saveStatus"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const listingId = params.get('id');
+let chantier = { lots: [], depenses: [], rad: {} };
+let chartInstance = null;
+
+function currency(n){ return Math.round(n || 0).toLocaleString('fr-FR') + ' €'; }
+
+async function loadListing(){
+  try {
+    const response = await fetch(`/api/listings/${listingId}`);
+    if(!response.ok) throw new Error("Analyse introuvable");
+    const data = await response.json();
+
+    document.getElementById('pageTitle').textContent = `Suivi de chantier — ${data.label}`;
+    document.getElementById('pageSubtitle').textContent = `${data.listing.ville || ''} • ${data.listing.surface || '?'} m²`;
+
+    if(data.project.chantier){
+      chantier = {
+        lots: data.project.chantier.lots || [],
+        depenses: Array.isArray(data.project.chantier.depenses) ? data.project.chantier.depenses : Object.values(data.project.chantier.depenses || {}),
+        rad: data.project.chantier.rad || {}
+      };
+      document.getElementById('mainZone').style.display = 'block';
+      renderAll();
+    } else {
+      document.getElementById('initZone').style.display = 'block';
+    }
+  } catch(err) {
+    document.getElementById('pageSubtitle').textContent = "Erreur : " + err.message;
+  }
+}
+
+async function initChantier(){
+  try {
+    const response = await fetch(`/api/listings/${listingId}/chantier/init`, { method: 'POST' });
+    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
+    await loadListing();
+    document.getElementById('initZone').style.display = 'none';
+  } catch(err) {
+    alert("Erreur : " + err.message);
+  }
+}
+
+function depensesDuLot(lotId){
+  return chantier.depenses.filter(d => d.lotId === lotId);
+}
+function totalDepenseLot(lotId){
+  return depensesDuLot(lotId).reduce((a,d) => a + (d.montant||0), 0);
+}
+function radLot(lotId, budget, depense){
+  return chantier.rad[lotId] !== undefined ? chantier.rad[lotId] : Math.max(0, budget - depense);
+}
+
+function renderLots(){
+  const body = document.getElementById('lotsBody');
+  const lotSelect = document.getElementById('depLot');
+  lotSelect.innerHTML = chantier.lots.map(l => `<option value="${l.id}">${l.nom}</option>`).join('');
+
+  body.innerHTML = chantier.lots.map(lot => {
+    const depense = totalDepenseLot(lot.id);
+    const rad = radLot(lot.id, lot.budget, depense);
+    const fin = depense + rad;
+    const ecart = fin - lot.budget;
+    return `<tr>
+      <td><input class="lot-input wide" value="${lot.nom.replace(/"/g,'&quot;')}" onchange="updateLot('${lot.id}','nom',this.value)"></td>
+      <td><input type="number" class="lot-input" value="${lot.budget}" onchange="updateLot('${lot.id}','budget',parseFloat(this.value)||0)"></td>
+      <td>${currency(depense)}</td>
+      <td><input type="number" class="lot-input" value="${rad}" onchange="updateRad('${lot.id}',parseFloat(this.value)||0)"></td>
+      <td>${currency(fin)}</td>
+      <td class="${ecart > 0 ? 'ecart-pos' : 'ecart-neg'}">${ecart > 0 ? '+' : ''}${currency(ecart)}</td>
+      <td><button class="remove-lot" onclick="removeLot('${lot.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  renderSummary();
+}
+
+function updateLot(id, field, value){
+  const lot = chantier.lots.find(l => l.id === id);
+  if(lot) lot[field] = value;
+  renderLots();
+}
+function updateRad(id, value){
+  chantier.rad[id] = value;
+  renderLots();
+}
+function addLot(){
+  chantier.lots.push({ id: `lot-${Date.now()}`, nom: 'Nouveau lot', budget: 0 });
+  renderLots();
+}
+function removeLot(id){
+  if(!confirm('Supprimer ce lot et ses dépenses associées ?')) return;
+  chantier.lots = chantier.lots.filter(l => l.id !== id);
+  chantier.depenses = chantier.depenses.filter(d => d.lotId !== id);
+  delete chantier.rad[id];
+  renderLots();
+  renderDepenses();
+  renderChart();
+}
+
+function renderDepenses(){
+  const body = document.getElementById('depensesBody');
+  const sorted = [...chantier.depenses].sort((a,b) => new Date(b.date) - new Date(a.date));
+  body.innerHTML = sorted.map(d => {
+    const lot = chantier.lots.find(l => l.id === d.lotId);
+    return `<tr>
+      <td>${d.date || '—'}</td>
+      <td>${lot ? lot.nom : '—'}</td>
+      <td>${d.ligne || '—'}</td>
+      <td>${currency(d.montant)}</td>
+      <td>${d.note || ''}</td>
+      <td><button class="del-depense" onclick="removeDepense('${d.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function addDepense(){
+  const date = document.getElementById('depDate').value;
+  const lotId = document.getElementById('depLot').value;
+  const ligne = document.getElementById('depLigne').value.trim();
+  const montant = parseFloat(document.getElementById('depMontant').value);
+  const note = document.getElementById('depNote').value.trim();
+
+  if(!date || !lotId || !montant){ alert('Date, lot et montant sont obligatoires.'); return; }
+
+  chantier.depenses.push({ id: `dep-${Date.now()}`, date, lotId, ligne, montant, note });
+  document.getElementById('depLigne').value = '';
+  document.getElementById('depMontant').value = '';
+  document.getElementById('depNote').value = '';
+
+  renderLots();
+  renderDepenses();
+  renderChart();
+}
+function removeDepense(id){
+  chantier.depenses = chantier.depenses.filter(d => d.id !== id);
+  renderLots();
+  renderDepenses();
+  renderChart();
+}
+
+function renderSummary(){
+  const budgetTotal = chantier.lots.reduce((a,l) => a + (l.budget||0), 0);
+  const depenseTotal = chantier.depenses.reduce((a,d) => a + (d.montant||0), 0);
+  const radTotal = chantier.lots.reduce((a,l) => a + radLot(l.id, l.budget, totalDepenseLot(l.id)), 0);
+  const finTotal = depenseTotal + radTotal;
+
+  document.getElementById('sumBudget').textContent = currency(budgetTotal);
+  document.getElementById('sumDepense').textContent = currency(depenseTotal);
+  document.getElementById('sumRad').textContent = currency(radTotal);
+  const finEl = document.getElementById('sumFin');
+  finEl.textContent = currency(finTotal);
+  finEl.style.color = finTotal > budgetTotal ? 'var(--red)' : 'var(--green)';
+}
+
+function renderChart(){
+  const parMois = {};
+  for(const d of chantier.depenses){
+    if(!d.date) continue;
+    const mois = d.date.slice(0,7); // YYYY-MM
+    parMois[mois] = (parMois[mois] || 0) + (d.montant || 0);
+  }
+  const mois = Object.keys(parMois).sort();
+  const montantsMois = mois.map(m => parMois[m]);
+  let cumul = 0;
+  const cumulatif = montantsMois.map(m => cumul += m);
+  const budgetTotal = chantier.lots.reduce((a,l) => a + (l.budget||0), 0);
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    data: {
+      labels: mois,
+      datasets: [
+        { type: 'bar', label: 'Dépenses du mois', data: montantsMois, backgroundColor: 'rgba(201,162,74,0.5)' },
+        { type: 'line', label: 'Cumul dépenses', data: cumulatif, borderColor: '#c9a24a', tension: 0.2 },
+        { type: 'line', label: 'Budget total', data: mois.map(() => budgetTotal), borderColor: '#e0645a', borderDash: [6,6], pointRadius: 0 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#f3f2ee' } } },
+      scales: {
+        x: { ticks: { color: '#93938e' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#93938e' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+function renderAll(){
+  renderLots();
+  renderDepenses();
+  renderChart();
+}
+
+async function saveChantier(){
+  const btn = document.getElementById('saveBtn');
+  const statusEl = document.getElementById('saveStatus');
+  btn.disabled = true;
+  statusEl.textContent = 'Enregistrement...';
+  try {
+    const response = await fetch(`/api/listings/${listingId}/chantier`, {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(chantier)
+    });
+    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
+    statusEl.innerHTML = '<span style="color:var(--green)">✓ Suivi enregistré.</span>';
+  } catch(err) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Erreur : ${err.message}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+if(listingId) loadListing();
+else document.getElementById('pageSubtitle').textContent = "Aucune annonce sélectionnée.";
+</script>
+
+</body>
+</html>

@@ -157,6 +157,70 @@ app.patch("/api/listings/:id/travaux", async (req, res) => {
   }
 });
 
+// "Gèle" le budget travaux : transforme le chiffrage pré-achat en budget initial par lot.
+// N'écrase jamais un suivi de chantier déjà existant (idempotent).
+app.post("/api/listings/:id/chantier/init", async (req, res) => {
+  try {
+    const listings = await readListings();
+    const entry = listings.find((l) => l.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
+
+    if (entry.project.chantier) {
+      return res.json(entry); // déjà initialisé, on ne touche à rien
+    }
+
+    // Regroupe le détail du chiffrage (par pièce) en lots, par poste de travaux
+    const detail = entry.project.travauxDetail?.detail || [];
+    const parPoste = {};
+    for (const ligne of detail) {
+      const cle = ligne.poste;
+      parPoste[cle] = (parPoste[cle] || 0) + ligne.cout;
+    }
+
+    const NOMS_LOTS = {
+      peinture: "Peinture", sol: "Sol", electricite: "Électricité", plomberie: "Plomberie",
+      forfait: "Cuisine / Salle de bain", isolation: "Isolation", toiture: "Toiture",
+      cloisons: "Cloisons", menuiseries: "Menuiseries"
+    };
+
+    let lots = Object.entries(parPoste).map(([poste, budget], idx) => ({
+      id: `lot-${idx}-${Date.now()}`,
+      nom: NOMS_LOTS[poste] || poste,
+      budget: Math.round(budget)
+    }));
+
+    // Si aucun détail de chiffrage n'existe, on part d'un lot unique avec le montant global "Travaux"
+    if (lots.length === 0 && entry.project.travaux) {
+      lots = [{ id: `lot-0-${Date.now()}`, nom: "Travaux (non détaillé)", budget: entry.project.travaux }];
+    }
+
+    const mergedProject = { ...entry.project, chantier: { lots, depenses: {}, rad: {} } };
+    const updated = await updateListing(req.params.id, { project: mergedProject });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible d'initialiser le suivi de chantier.", details: err.message });
+  }
+});
+
+// Sauvegarde le suivi de chantier (lots, dépenses, RAD ajusté manuellement)
+app.patch("/api/listings/:id/chantier", async (req, res) => {
+  try {
+    const { lots, depenses, rad } = req.body;
+
+    const listings = await readListings();
+    const entry = listings.find((l) => l.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
+
+    const mergedProject = { ...entry.project, chantier: { lots, depenses, rad } };
+    const updated = await updateListing(req.params.id, { project: mergedProject });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible d'enregistrer le suivi de chantier.", details: err.message });
+  }
+});
+
 app.post("/api/analyze", async (req, res) => {
   try {
     const { url } = req.body;

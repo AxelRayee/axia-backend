@@ -234,6 +234,7 @@
     <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
       <button class="btn-primary" onclick="saveTravaux()" id="saveBtn">Enregistrer ce chiffrage</button>
       <span id="saveStatus"></span>
+      <a class="btn-secondary" href="suivi-chantier.html?id=" id="chantierLink" style="margin-left:auto;">Chantier signé → Suivre les dépenses réelles →</a>
     </div>
   </div>
 </div>
@@ -256,6 +257,7 @@ async function loadListing(){
 
     document.getElementById('pageTitle').textContent = `Travaux — ${listingData.label}`;
     document.getElementById('pageSubtitle').textContent = `${listingData.listing.ville || ''} • ${listingData.listing.surface || '?'} m²`;
+    document.getElementById('chantierLink').href = `suivi-chantier.html?id=${listingId}`;
 
     const detail = listingData.project.travauxDetail;
     if(detail?.pieces?.length) rooms = detail.pieces;
