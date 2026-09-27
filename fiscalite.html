@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AxIA — Simulateur fiscal</title>
+<style>
+  :root{
+    --bg:#0b0c0e; --bg-elevated:#141618; --bg-soft:#1b1d20;
+    --ink:#f3f2ee; --ink-soft:#93938e;
+    --gold:#c9a24a; --gold-soft:rgba(201,162,74,0.14);
+    --market:#5b8fb0; --market-soft:rgba(91,143,176,0.16);
+    --green:#4caf74; --green-soft:rgba(76,175,116,0.14);
+    --red:#e0645a; --red-soft:rgba(224,100,90,0.14);
+    --line:rgba(255,255,255,0.09);
+    --radius:20px; --radius-sm:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  a{color:inherit; text-decoration:none;}
+  nav{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 32px; background:rgba(11,12,14,0.75);
+    backdrop-filter:saturate(180%) blur(20px); border-bottom:1px solid var(--line);
+  }
+  .logo{ font-size:19px; font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:2px; }
+  .logo span{color:var(--gold);}
+  .back-link{ font-size:14px; color:var(--ink-soft); }
+  .back-link:hover{ color:var(--ink); }
+
+  .container{ max-width:1000px; margin:0 auto; padding:40px 24px 80px; }
+  h1{ font-size:32px; font-weight:700; letter-spacing:-0.02em; margin:0 0 6px; }
+  .subtitle{ color:var(--ink-soft); font-size:15px; margin:0 0 32px; }
+
+  .panel{
+    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius);
+    padding:24px; margin-bottom:24px;
+  }
+  .panel h2{ font-size:18px; font-weight:700; margin:0 0 4px; }
+  .panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px; line-height:1.6; }
+
+  .field-row{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:12px; color:var(--ink-soft); }
+  .field select, .field input{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:8px;
+    padding:9px 12px; font-size:13.5px; color:var(--ink); font-family:inherit; width:150px;
+  }
+  .field select:focus, .field input:focus{ outline:none; border-color:var(--gold); }
+
+  .btn-primary{
+    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
+    padding:11px 22px; font-size:14px; font-weight:700; cursor:pointer; transition:filter .15s ease;
+  }
+  .btn-primary:hover{ filter:brightness(1.1); }
+  .mode-toggle{ display:flex; gap:4px; background:var(--bg-soft); border:1px solid var(--line); border-radius:999px; padding:4px; width:fit-content; }
+  .mode-toggle button{ border:none; background:transparent; color:var(--ink-soft); padding:8px 18px; border-radius:999px; font-size:13.5px; font-weight:600; cursor:pointer; }
+  .mode-toggle button.active{ background:var(--gold); color:#171410; }
+
+  .compare-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width: 760px){ .compare-grid{ grid-template-columns:1fr; } }
+  .regime-card{
+    background:var(--bg-soft); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:20px;
+  }
+  .regime-card.best{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+  .regime-card h3{ font-size:16px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .badge-best{ font-size:10.5px; background:var(--gold-soft); color:var(--gold); padding:2px 8px; border-radius:999px; font-weight:700; }
+  .regime-card .not-eligible{ font-size:12.5px; color:var(--red); margin-bottom:10px; }
+  .line{ display:flex; justify-content:space-between; font-size:13.5px; padding:6px 0; border-bottom:1px solid var(--line); }
+  .line:last-child{ border-bottom:none; }
+  .line .val{ font-weight:600; }
+  .cashflow-final{ margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+  .cashflow-final .label{ font-size:12px; color:var(--ink-soft); }
+  .cashflow-final .value{ font-size:22px; font-weight:700; }
+
+  .disclaimer{
+    font-size:12.5px; color:var(--ink-soft); background:var(--bg-soft);
+    border-radius:var(--radius-sm); padding:14px 16px; margin-top:16px; line-height:1.6;
+  }
+  .status-msg{ font-size:13px; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Ax<span>IA</span></div>
+  <a class="back-link" href="index.html">← Retour aux analyses</a>
+</nav>
+
+<div class="container">
+  <h1 id="pageTitle">Simulateur fiscal</h1>
+  <p class="subtitle" id="pageSubtitle">Chargement...</p>
+
+  <div class="panel">
+    <h2>Votre profil fiscal</h2>
+    <p class="hint">Réutilisé sur toutes vos analyses. La tranche d'imposition (TMI) détermine l'essentiel du calcul.</p>
+    <div class="field-row">
+      <div class="field">
+        <label>Tranche marginale d'imposition</label>
+        <select id="tmi">
+          <option value="0">0%</option>
+          <option value="11">11%</option>
+          <option value="30">30%</option>
+          <option value="41">41%</option>
+          <option value="45">45%</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Part terrain (non amortissable)</label>
+        <input type="number" id="partTerrain" value="15"> %
+      </div>
+      <div class="field">
+        <label>Durée amort. immeuble</label>
+        <input type="number" id="dureeImmeuble" value="25"> ans
+      </div>
+      <div class="field">
+        <label>Durée amort. travaux</label>
+        <input type="number" id="dureeTravaux" value="10"> ans
+      </div>
+      <button class="btn-primary" onclick="saveProfil()">Enregistrer mon profil</button>
+    </div>
+    <div class="status-msg" id="profilStatus"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Mode de location de ce bien</h2>
+    <div class="mode-toggle">
+      <button id="btnNu" onclick="setMode('nu')">Location nue</button>
+      <button id="btnMeuble" onclick="setMode('meuble')">Location meublée</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Comparaison des régimes</h2>
+    <p class="hint">Photo de l'année 1 : loyer − charges − impôt sur le revenu − prélèvements sociaux. Ne modélise pas les années suivantes (report de déficit) ni la revente.</p>
+    <div class="compare-grid" id="compareGrid"></div>
+  </div>
+
+  <div class="disclaimer">
+    ⚠️ Ce simulateur donne une estimation pour vous aider à arbitrer entre régimes — ce n'est pas une déclaration fiscale ni un conseil personnalisé. Pour du LMNP réel notamment, faites valider par un comptable spécialisé (généralement 300-500€/an), surtout la première année. La plus-value à la revente (avec réintégration des amortissements en LMNP réel depuis 2025) n'est pas modélisée ici.
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const listingId = params.get('id');
+let currentMode = 'nu';
+
+async function loadProfil(){
+  const response = await fetch('/api/profil-fiscal');
+  const profil = await response.json();
+  document.getElementById('tmi').value = profil.tmi;
+  document.getElementById('partTerrain').value = profil.partTerrainPct;
+  document.getElementById('dureeImmeuble').value = profil.dureeAmortImmeubleAns;
+  document.getElementById('dureeTravaux').value = profil.dureeAmortTravauxAns;
+}
+
+async function saveProfil(){
+  const statusEl = document.getElementById('profilStatus');
+  statusEl.textContent = 'Enregistrement...';
+  try {
+    await fetch('/api/profil-fiscal', {
+      method: 'PATCH', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        tmi: parseFloat(document.getElementById('tmi').value),
+        partTerrainPct: parseFloat(document.getElementById('partTerrain').value),
+        dureeAmortImmeubleAns: parseFloat(document.getElementById('dureeImmeuble').value),
+        dureeAmortTravauxAns: parseFloat(document.getElementById('dureeTravaux').value)
+      })
+    });
+    statusEl.innerHTML = '<span style="color:var(--green)">✓ Profil enregistré.</span>';
+    loadComparaison();
+  } catch(err) {
+    statusEl.innerHTML = `<span style="color:var(--red)">Erreur : ${err.message}</span>`;
+  }
+}
+
+function currency(n){ return Math.round(n || 0).toLocaleString('fr-FR') + ' €'; }
+
+function setMode(mode){
+  currentMode = mode;
+  document.getElementById('btnNu').classList.toggle('active', mode === 'nu');
+  document.getElementById('btnMeuble').classList.toggle('active', mode === 'meuble');
+  loadComparaison();
+}
+
+function renderRegime(r, isBest){
+  const lignes = [
+    ['Base imposable', currency(r.baseImposable)],
+    ['Impôt sur le revenu', currency(r.impot)],
+    ['Prélèvements sociaux (18,6%)', currency(r.prelevementsSociaux)]
+  ];
+  if(r.amortissementAnnuel !== undefined) lignes.push(['Amortissement annuel', currency(r.amortissementAnnuel)]);
+  if(r.deficitImputableGlobal) lignes.push(['Déficit imputable (revenu global)', '-' + currency(r.deficitImputableGlobal)]);
+  if(r.deficitReporte) lignes.push(['Déficit reporté (années suivantes)', currency(r.deficitReporte)]);
+  if(r.deficitReporteNonUtilise) lignes.push(['Déficit LMNP reporté (non imputable ailleurs)', currency(r.deficitReporteNonUtilise)]);
+
+  return `
+    <div class="regime-card ${isBest ? 'best' : ''}">
+      <h3>${r.regime} ${isBest ? '<span class="badge-best">Le plus favorable</span>' : ''}</h3>
+      ${!r.eligible ? '<div class="not-eligible">⚠️ Plafond de recettes dépassé pour ce régime</div>' : ''}
+      ${lignes.map(([l,v]) => `<div class="line"><span>${l}</span><span class="val">${v}</span></div>`).join('')}
+      <div class="cashflow-final">
+        <div class="label">Cash-flow net-net mensuel</div>
+        <div class="value" style="color:${r.cashFlowNetNetMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${r.cashFlowNetNetMensuel >= 0 ? '+' : ''}${currency(r.cashFlowNetNetMensuel)}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadComparaison(){
+  try {
+    const response = await fetch(`/api/listings/${listingId}/fiscal?mode=${currentMode}`);
+    if(!response.ok) throw new Error("Impossible de calculer");
+    const data = await response.json();
+    const grid = document.getElementById('compareGrid');
+    grid.innerHTML = data.regimes.map(r => renderRegime(r, r.regime === data.meilleurRegime)).join('');
+  } catch(err) {
+    document.getElementById('compareGrid').innerHTML = `<p style="color:var(--red)">Erreur : ${err.message}</p>`;
+  }
+}
+
+async function init(){
+  try {
+    const response = await fetch(`/api/listings/${listingId}`);
+    if(!response.ok) throw new Error("Analyse introuvable");
+    const data = await response.json();
+    document.getElementById('pageTitle').textContent = `Fiscalité — ${data.label}`;
+    document.getElementById('pageSubtitle').textContent = `${data.listing.ville || ''} • Loyer estimé : ${currency(data.financials.loyerAnnuel/12)}/mois`;
+  } catch(err) {
+    document.getElementById('pageSubtitle').textContent = "Erreur : " + err.message;
+    return;
+  }
+  await loadProfil();
+  setMode('nu');
+}
+
+if(listingId) init();
+else document.getElementById('pageSubtitle').textContent = "Aucune annonce sélectionnée.";
+</script>
+
+</body>
+</html>

@@ -202,6 +202,7 @@
     text-decoration:underline; text-underline-offset:2px;
   }
   .travaux-link{ color:var(--market); }
+  .fiscal-link{ color:var(--green); }
 
   /* ===== VUE TABLEAU ===== */
   .table-wrap{
@@ -450,6 +451,7 @@ function renderCards(list){
         ${marketBar(l)}
         ${l.listing.url ? `<a class="card-footer-link" href="${l.listing.url}" target="_blank" rel="noopener">Voir l'annonce d'origine →</a>` : ''}
         <a class="card-footer-link travaux-link" href="travaux.html?id=${l.id}">🛠 Chiffrer les travaux →</a>
+        <a class="card-footer-link fiscal-link" href="fiscalite.html?id=${l.id}">📊 Simulateur fiscal →</a>
       </div>
     </div>
   `).join('');

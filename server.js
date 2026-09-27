@@ -14,7 +14,8 @@ import { estimateAssurancePNO } from "./assurance.js";
 import { computeFullMetrics, TAUX_CREDIT_DEFAUT, TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT } from "./calc.js";
 import { extractPlanRooms } from "./planExtract.js";
 import { computeTotalTravaux } from "./travauxPrix.js";
-import { readListings, addListing, updateListing, deleteListing } from "./storage.js";
+import { computeComparaisonFiscale } from "./fiscal.js";
+import { readListings, addListing, updateListing, deleteListing, readProfilFiscal, saveProfilFiscal } from "./storage.js";
 
 const app = express();
 app.use(cors());
@@ -218,6 +219,49 @@ app.patch("/api/listings/:id/chantier", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible d'enregistrer le suivi de chantier.", details: err.message });
+  }
+});
+
+// Profil fiscal global (tranche d'imposition, hypothèses d'amortissement)
+app.get("/api/profil-fiscal", async (req, res) => {
+  try {
+    const profil = await readProfilFiscal();
+    res.json(profil);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible de lire le profil fiscal.", details: err.message });
+  }
+});
+
+app.patch("/api/profil-fiscal", async (req, res) => {
+  try {
+    const profil = await saveProfilFiscal(req.body);
+    res.json(profil);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible d'enregistrer le profil fiscal.", details: err.message });
+  }
+});
+
+// Comparaison fiscale pour une annonce donnée, selon son mode de location (nu/meublé)
+app.get("/api/listings/:id/fiscal", async (req, res) => {
+  try {
+    const listings = await readListings();
+    const entry = listings.find((l) => l.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
+
+    const profilFiscal = await readProfilFiscal();
+    const modeLocation = req.query.mode === "meuble" ? "meuble" : "nu";
+
+    const comparaison = computeComparaisonFiscale({
+      listing: entry.listing, project: entry.project, financials: entry.financials,
+      profilFiscal, modeLocation
+    });
+
+    res.json({ ...comparaison, modeLocation, profilFiscal });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible de calculer la comparaison fiscale.", details: err.message });
   }
 });
 
