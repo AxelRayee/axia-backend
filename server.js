@@ -326,6 +326,7 @@ app.post("/api/analyze", async (req, res) => {
       gestionMensuelle: 0,
       tauxCredit: TAUX_CREDIT_DEFAUT,
       tauxAssuranceEmprunteur: TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT,
+      apport: 0,
       sources
     };
 

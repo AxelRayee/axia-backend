@@ -5,108 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AxIA — Suivi de chantier</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<style>
-  :root{
-    --bg:#0b0c0e; --bg-elevated:#141618; --bg-soft:#1b1d20;
-    --ink:#f3f2ee; --ink-soft:#93938e;
-    --gold:#c9a24a; --gold-soft:rgba(201,162,74,0.14);
-    --market:#5b8fb0; --market-soft:rgba(91,143,176,0.16);
-    --green:#4caf74; --green-soft:rgba(76,175,116,0.14);
-    --red:#e0645a; --red-soft:rgba(224,100,90,0.14);
-    --line:rgba(255,255,255,0.09);
-    --radius:20px; --radius-sm:12px;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg); color:var(--ink);
-    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing:antialiased; line-height:1.5;
-  }
-  a{color:inherit; text-decoration:none;}
-  nav{
-    position:sticky; top:0; z-index:50;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:16px 32px; background:rgba(11,12,14,0.75);
-    backdrop-filter:saturate(180%) blur(20px); border-bottom:1px solid var(--line);
-  }
-  .logo{ font-size:19px; font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:2px; }
-  .logo span{color:var(--gold);}
-  .back-link{ font-size:14px; color:var(--ink-soft); }
-  .back-link:hover{ color:var(--ink); }
-
-  .container{ max-width:1200px; margin:0 auto; padding:40px 24px 80px; }
-  h1{ font-size:32px; font-weight:700; letter-spacing:-0.02em; margin:0 0 6px; }
-  .subtitle{ color:var(--ink-soft); font-size:15px; margin:0 0 32px; }
-
-  .panel{
-    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius);
-    padding:24px; margin-bottom:24px;
-  }
-  .panel h2{ font-size:18px; font-weight:700; margin:0 0 4px; }
-  .panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px; }
-
-  .btn-primary{
-    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
-    padding:11px 22px; font-size:14px; font-weight:700; cursor:pointer; transition:filter .15s ease;
-  }
-  .btn-primary:hover{ filter:brightness(1.1); }
-  .btn-secondary{
-    background:var(--bg-soft); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer;
-  }
-  .btn-secondary:hover{ border-color:var(--gold); color:var(--gold); }
-
-  .init-cta{ text-align:center; padding:40px 20px; }
-  .init-cta .icon{ font-size:36px; margin-bottom:12px; }
-
-  .summary-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px; }
-  @media (max-width: 900px){ .summary-grid{ grid-template-columns:repeat(2,1fr); } }
-  .summary-card{ background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius-sm); padding:18px; }
-  .summary-card .label{ font-size:12px; color:var(--ink-soft); margin-bottom:6px; }
-  .summary-card .value{ font-size:24px; font-weight:700; }
-
-  table.lots-table{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  table.lots-table th, table.lots-table td{ padding:10px; border-bottom:1px solid var(--line); text-align:left; }
-  table.lots-table th{ color:var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; }
-  .lot-input{ background:var(--bg-soft); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font-size:13px; color:var(--ink); font-family:inherit; width:90px; }
-  .lot-input.wide{ width:150px; }
-  .lot-input:focus{ outline:none; border-color:var(--gold); }
-  .ecart-pos{ color:var(--red); font-weight:600; }
-  .ecart-neg{ color:var(--green); font-weight:600; }
-  .remove-lot{ background:transparent; border:none; color:var(--ink-soft); cursor:pointer; }
-  .remove-lot:hover{ color:var(--red); }
-
-  .depense-form{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
-  .depense-form select, .depense-form input{
-    background:var(--bg-soft); border:1px solid var(--line); border-radius:8px;
-    padding:9px 12px; font-size:13.5px; color:var(--ink); font-family:inherit;
-  }
-  .depense-form input[type="text"]{ min-width:160px; }
-
-  table.depenses-table{ width:100%; border-collapse:collapse; font-size:13px; }
-  table.depenses-table th, table.depenses-table td{ padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
-  table.depenses-table th{ color:var(--ink-soft); font-weight:600; font-size:11px; text-transform:uppercase; }
-  .del-depense{ background:transparent; border:none; color:var(--ink-soft); cursor:pointer; }
-  .del-depense:hover{ color:var(--red); }
-
-  canvas{ max-height:280px; }
-  .status-msg{ font-size:13.5px; margin-top:10px; }
-</style>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
 </head>
 <body>
 
-<nav>
-  <div class="logo">Ax<span>IA</span></div>
-  <a class="back-link" href="index.html">← Retour aux analyses</a>
-</nav>
+<div id="app-nav"></div>
 
 <div class="container">
-  <h1 id="pageTitle">Suivi de chantier</h1>
-  <p class="subtitle" id="pageSubtitle">Chargement...</p>
+  <div id="fiche-header"></div>
+  <p class="page-status" id="pageSubtitle" role="status" aria-live="polite">Chargement…</p>
 
   <div id="initZone" class="panel init-cta" style="display:none;">
-    <div class="icon">🏗️</div>
+    <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17h16v2H4zM6 17v-3a6 6 0 0 1 12 0v3M10 8V5h4v3"/></svg>
     <h2>Le budget n'est pas encore figé</h2>
     <p class="hint">On transforme votre chiffrage travaux en budget de référence par lot. Vous pourrez ensuite l'ajuster librement.</p>
     <button class="btn-primary" onclick="initChantier()">Geler le budget et démarrer le suivi</button>
@@ -161,6 +72,7 @@
 </div>
 
 <script>
+AxIA.renderNav('analyses');
 const params = new URLSearchParams(window.location.search);
 const listingId = params.get('id');
 let chantier = { lots: [], depenses: [], rad: {} };
@@ -174,8 +86,8 @@ async function loadListing(){
     if(!response.ok) throw new Error("Analyse introuvable");
     const data = await response.json();
 
-    document.getElementById('pageTitle').textContent = `Suivi de chantier — ${data.label}`;
-    document.getElementById('pageSubtitle').textContent = `${data.listing.ville || ''} • ${data.listing.surface || '?'} m²`;
+    AxIA.renderFicheHeader(AxIA.normalizeEntry(data), 'chantier');
+    document.getElementById('pageSubtitle').textContent = '';
 
     if(data.project.chantier){
       chantier = {

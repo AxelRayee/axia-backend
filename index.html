@@ -3,567 +3,271 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AxIA — Trouvez la meilleure affaire</title>
+<title>AxIA — Vos analyses</title>
+<link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<style>
-  :root{
-    --bg:#0b0c0e;
-    --bg-elevated:#141618;
-    --bg-soft:#1b1d20;
-    --ink:#f3f2ee;
-    --ink-soft:#93938e;
-    --gold:#c9a24a;
-    --gold-soft:rgba(201,162,74,0.14);
-    --market:#5b8fb0;
-    --market-soft:rgba(91,143,176,0.16);
-    --green:#4caf74;
-    --green-soft:rgba(76,175,116,0.14);
-    --red:#e0645a;
-    --red-soft:rgba(224,100,90,0.14);
-    --line:rgba(255,255,255,0.09);
-    --radius:20px;
-    --radius-sm:12px;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg);
-    color:var(--ink);
-    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing:antialiased;
-    line-height:1.5;
-  }
-  a{color:inherit;text-decoration:none;}
-
-  nav{
-    position:sticky; top:0; z-index:50;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:16px 32px;
-    background:rgba(11,12,14,0.75);
-    backdrop-filter:saturate(180%) blur(20px);
-    border-bottom:1px solid var(--line);
-  }
-  .logo{
-    font-size:19px; font-weight:700; letter-spacing:-0.01em;
-    display:flex; align-items:center; gap:2px;
-  }
-  .logo span{color:var(--gold);}
-  .nav-links{display:flex; gap:28px; font-size:14px; color:var(--ink-soft);}
-
-  .hero{
-    text-align:center;
-    padding:80px 24px 56px;
-    max-width:760px;
-    margin:0 auto;
-  }
-  .eyebrow{
-    display:inline-block;
-    font-size:13px; font-weight:600; color:var(--gold);
-    background:var(--gold-soft);
-    padding:6px 14px; border-radius:999px;
-    margin-bottom:20px;
-    letter-spacing:0.01em;
-  }
-  h1{
-    font-size:52px; font-weight:700; letter-spacing:-0.03em;
-    margin:0 0 16px;
-    line-height:1.05;
-  }
-  .hero p{
-    font-size:19px; color:var(--ink-soft);
-    margin:0 auto; max-width:560px;
-  }
-
-  .input-card{
-    max-width:720px;
-    margin:36px auto 0;
-    background:var(--bg-elevated);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:28px;
-  }
-  .input-row{ display:flex; gap:12px; }
-  .input-row textarea{
-    flex:1; resize:none; border:none; border-radius:var(--radius-sm);
-    padding:16px 18px; font-size:16px; font-family:inherit;
-    background:var(--bg-soft); color:var(--ink);
-    box-shadow: inset 0 0 0 1px var(--line);
-    min-height:52px; max-height:120px;
-  }
-  .input-row textarea::placeholder{color:var(--ink-soft);}
-  .input-row textarea:focus{ outline:none; box-shadow: inset 0 0 0 2px var(--gold); }
-  .btn-primary{
-    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
-    padding:0 26px; font-size:16px; font-weight:700; cursor:pointer;
-    transition:filter .15s ease; white-space:nowrap;
-  }
-  .btn-primary:hover{filter:brightness(1.1);}
-  .btn-primary:disabled{opacity:0.6; cursor:not-allowed;}
-  .input-hint{ font-size:13px; color:var(--ink-soft); margin-top:12px; padding-left:2px; }
-
-  .section{ max-width:1400px; margin:0 auto; padding:56px 24px 24px; }
-  .section-head{
-    display:flex; align-items:center; justify-content:space-between;
-    margin-bottom:20px; flex-wrap:wrap; gap:12px;
-  }
-  .section-head h2{ font-size:26px; font-weight:700; letter-spacing:-0.02em; margin:0; }
-  .section-head .count{color:var(--ink-soft); font-size:14px;}
-
-  .view-toggle{
-    display:flex; gap:4px; background:var(--bg-elevated);
-    border:1px solid var(--line); border-radius:999px; padding:4px;
-  }
-  .view-toggle button{
-    border:none; background:transparent; color:var(--ink-soft);
-    padding:7px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer;
-  }
-  .view-toggle button.active{ background:var(--gold); color:#171410; }
-
-  .export-btn{
-    background:var(--bg-elevated); border:1px solid var(--line); color:var(--ink);
-    padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer;
-  }
-  .export-btn:hover{ border-color:var(--gold); color:var(--gold); }
-
-  .toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-
-  .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
-  .filter-chip{
-    background:var(--bg-elevated); border:1px solid var(--line); border-radius:999px;
-    padding:9px 16px; font-size:14px; color:var(--ink); cursor:pointer;
-    display:flex; align-items:center; gap:6px;
-  }
-  .filter-chip select{ border:none; background:transparent; font:inherit; color:inherit; cursor:pointer; }
-  .filter-chip select:focus{outline:none;}
-  .filter-chip option{background:var(--bg-elevated); color:var(--ink);}
-
-  /* ===== VUE CARTES ===== */
-  .grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:20px; }
-  @media (max-width: 980px){ .grid{grid-template-columns:repeat(2,1fr);} }
-  @media (max-width: 680px){ .grid{grid-template-columns:1fr;} h1{font-size:36px;} .input-row{flex-direction:column;} .btn-primary{padding:14px;} }
-
-  .card{
-    border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
-    background:var(--bg-elevated); transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-  }
-  .card:hover{ transform:translateY(-3px); border-color:rgba(201,162,74,0.35); box-shadow:0 16px 32px rgba(0,0,0,0.4); }
-  .card-photo{ height:140px; background:linear-gradient(135deg,#26292d,#1a1c1f); background-size:cover; background-position:center; position:relative; }
-  .card-badge{
-    position:absolute; top:12px; left:12px; background:rgba(11,12,14,0.7); backdrop-filter:blur(6px);
-    font-size:12px; font-weight:600; padding:5px 10px; border-radius:999px; border:1px solid var(--line);
-  }
-  .photo-source{ top:44px; }
-  .delete-btn{
-    position:absolute; top:12px; right:12px; width:26px; height:26px; border-radius:50%;
-    border:1px solid var(--line); background:rgba(11,12,14,0.7); backdrop-filter:blur(6px);
-    color:var(--ink-soft); font-size:13px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; transition:background .15s ease, color .15s ease;
-  }
-  .delete-btn:hover{ background:var(--red-soft); color:var(--red); }
-  .card-body{padding:18px 20px 20px;}
-  .card-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
-  .card-price{font-size:22px; font-weight:700; letter-spacing:-0.01em;}
-  .card-city{font-size:14px; color:var(--ink-soft); margin-top:2px;}
-  .score-ring{ width:44px; height:44px; flex-shrink:0; }
-  .score-ring text{ font-size:13px; font-weight:700; fill:var(--ink); }
-  .card-metrics{ display:flex; gap:16px; margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
-  .metric{flex:1;}
-  .metric .label{font-size:12px; color:var(--ink-soft); margin-bottom:3px;}
-  .metric .value{font-size:15px; font-weight:600;}
-
-  .market-block{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
-  .market-label{ display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
-  .market-label b{color:var(--market); font-weight:600;}
-  .market-track{ position:relative; height:6px; border-radius:999px; background:var(--market-soft); border:1px solid var(--line); }
-  .market-avg{ position:absolute; top:-4px; width:2px; height:14px; background:var(--ink-soft); }
-  .market-pin{ position:absolute; top:-5px; width:14px; height:14px; border-radius:50%; border:2px solid var(--bg-elevated); transform:translateX(-50%); }
-  .market-caption{ font-size:12.5px; margin-top:9px; color:var(--ink-soft); }
-  .market-caption b{font-weight:600;}
-
-  .rent-block{ margin-top:16px; padding-top:16px; border-top:1px solid var(--line); }
-  .rent-label{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
-  .rent-badge{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
-  .rent-badge.estimated{background:var(--market-soft); color:var(--market);}
-  .rent-badge.corrected{background:var(--gold-soft); color:var(--gold);}
-  .rent-edit{ display:flex; gap:8px; }
-  .rent-input{
-    flex:1; background:var(--bg-soft); border:1px solid var(--line); border-radius:8px;
-    padding:8px 10px; font-size:14px; color:var(--ink); font-family:inherit;
-  }
-  .rent-input:focus{ outline:none; border-color:var(--gold); }
-  .rent-save{
-    background:var(--bg-soft); border:1px solid var(--line); border-radius:8px; padding:0 14px;
-    color:var(--ink); font-size:13px; font-weight:600; cursor:pointer;
-  }
-  .rent-save:hover{border-color:var(--gold); color:var(--gold);}
-
-  .card-footer-link{
-    display:block; margin-top:14px; font-size:12.5px; color:var(--gold);
-    text-decoration:underline; text-underline-offset:2px;
-  }
-  .travaux-link{ color:var(--market); }
-  .fiscal-link{ color:var(--green); }
-
-  /* ===== VUE TABLEAU ===== */
-  .table-wrap{
-    border:1px solid var(--line); border-radius:var(--radius); overflow:auto;
-    background:var(--bg-elevated); max-height:70vh;
-  }
-  table.data-table{ border-collapse:collapse; width:100%; font-size:13px; white-space:nowrap; }
-  table.data-table th, table.data-table td{
-    padding:10px 12px; border-bottom:1px solid var(--line); text-align:left;
-  }
-  table.data-table thead th{
-    position:sticky; top:0; background:#1a1c1f; color:var(--ink-soft);
-    font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em;
-    z-index:2; border-bottom:1px solid var(--line);
-  }
-  table.data-table td:first-child, table.data-table th:first-child{
-    position:sticky; left:0; background:#1a1c1f; z-index:1; min-width:180px;
-  }
-  table.data-table tbody tr:hover td{ background:rgba(255,255,255,0.03); }
-  table.data-table tbody tr:hover td:first-child{ background:#202326; }
-  .table-input{
-    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
-    padding:5px 7px; font-size:13px; color:var(--ink); font-family:inherit;
-  }
-  .table-input:focus{ outline:none; border-color:var(--gold); }
-  .table-input.cell-missing{ border-color:var(--red); background:rgba(224,100,90,0.08); }
-  .cell-missing-static{ color:var(--red); background:rgba(224,100,90,0.08); }
-  .src-badge{ font-size:10px; margin-left:2px; display:inline-block; }
-  .src-badge.est{ color:var(--market); }
-  .src-badge.ok{ color:var(--green); }
-  .col-computed{ color:var(--ink-soft); }
-  .col-score{ font-weight:700; }
-  .table-link{ color:var(--gold); text-decoration:underline; font-size:12.5px; }
-  .table-delete{
-    background:transparent; border:1px solid var(--line); color:var(--ink-soft);
-    border-radius:6px; padding:4px 8px; cursor:pointer; font-size:12px;
-  }
-  .table-delete:hover{ border-color:var(--red); color:var(--red); }
-  tfoot td{ font-weight:700; background:#1a1c1f; border-top:2px solid var(--line); position:sticky; bottom:0; }
-
-  .error-msg{ background:var(--red-soft); color:var(--red); padding:12px 16px; border-radius:var(--radius-sm); font-size:14px; margin-top:12px; }
-  .success-msg{ background:var(--green-soft); color:var(--green); padding:12px 16px; border-radius:var(--radius-sm); font-size:14px; margin-top:12px; }
-
-  footer{ text-align:center; padding:48px 24px 64px; color:var(--ink-soft); font-size:13px; }
-</style>
+<script src="common.js"></script>
 </head>
 <body>
 
-<nav>
-  <div class="logo">Ax<span>IA</span></div>
-  <div class="nav-links">
-    <span>Analyses</span>
-    <span>Marché</span>
-    <span>Réglages</span>
-  </div>
-</nav>
+<div id="app-nav"></div>
 
-<div class="hero">
-  <span class="eyebrow">IA + données officielles (DVF, ANIL)</span>
-  <h1>Repérez la bonne affaire,<br>pas la bonne annonce.</h1>
-  <p>Collez le lien d'une annonce. AxIA l'analyse, la compare au marché réel de son secteur et calcule sa rentabilité complète.</p>
+<main class="container stack">
 
-  <div class="input-card">
-    <div class="input-row">
-      <textarea id="urlInput" placeholder="Collez un lien d'annonce, ou collez directement le texte complet de l'annonce"></textarea>
-      <button class="btn-primary" id="analyzeBtn" onclick="analyzeUrl()">Analyser</button>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Vos analyses</h1>
+      <p class="page-sub" id="subLabel">Comparées aux ventes DVF et aux loyers ANIL</p>
     </div>
-    <div class="input-hint">Astuce : si le lien ne fonctionne pas (site protégé, ex : LeBonCoin), copiez-collez directement le texte de l'annonce à la place.</div>
-    <div id="feedbackMsg"></div>
   </div>
-</div>
 
-<div class="section">
-  <div class="section-head">
-    <h2>Vos analyses</h2>
-    <div class="toolbar">
-      <span class="count" id="countLabel">0 analyses</span>
-      <div class="view-toggle">
-        <button id="btnViewCards" class="active" onclick="setView('cards')">Cartes</button>
-        <button id="btnViewTable" onclick="setView('table')">Tableau</button>
+  <div>
+    <form class="analyze-bar" onsubmit="event.preventDefault(); analyzeUrl();">
+      <label for="urlInput" class="sr-only">Lien ou texte de l'annonce</label>
+      <div class="analyze-field">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+        <textarea id="urlInput" rows="1" placeholder="Collez un lien d'annonce, ou le texte complet de l'annonce"></textarea>
       </div>
-      <button class="export-btn" onclick="exportExcel()">⬇ Exporter en Excel</button>
+      <button type="submit" class="btn-primary" id="analyzeBtn" style="height:48px;padding:0 28px">Analyser</button>
+    </form>
+    <p class="hint">SeLoger, LeBonCoin : collez le texte de l'annonce, leurs liens sont bloqués depuis le serveur.</p>
+    <div id="feedbackMsg" role="status" aria-live="polite"></div>
+  </div>
+
+  <section class="kpis" aria-label="Synthèse" id="kpis"></section>
+
+  <div class="toolbar">
+    <div class="chips">
+      <div class="chip"><label for="filterVille">Ville</label><select id="filterVille" onchange="applyFilters()"><option value="">Toutes</option></select></div>
+      <div class="chip"><label for="filterRendement">Rendement net</label>
+        <select id="filterRendement" onchange="applyFilters()">
+          <option value="-999">Tous</option><option value="3">≥ 3 %</option><option value="4">≥ 4 %</option><option value="5">≥ 5 %</option><option value="7">≥ 7 %</option>
+        </select></div>
+      <div class="chip"><label for="filterScore">Score</label>
+        <select id="filterScore" onchange="applyFilters()">
+          <option value="0">Tous</option><option value="50">≥ 50</option><option value="65">≥ 65</option><option value="75">≥ 75</option>
+        </select></div>
+      <div class="chip"><label for="filterPrixM2">Prix/m²</label>
+        <select id="filterPrixM2" onchange="applyFilters()">
+          <option value="999999">Tous</option><option value="2500">≤ 2 500 €</option><option value="3500">≤ 3 500 €</option><option value="4500">≤ 4 500 €</option><option value="6000">≤ 6 000 €</option>
+        </select></div>
+      <div class="chip"><label for="filterTri">Trier</label>
+        <select id="filterTri" onchange="applyFilters()">
+          <option value="recent">Plus récent</option><option value="score">Meilleur score</option><option value="rendement">Rendement net</option><option value="cashflow">Cash-flow</option><option value="prix_asc">Prix croissant</option><option value="prix_desc">Prix décroissant</option>
+        </select></div>
+    </div>
+    <div class="tools-right">
+      <span class="count" id="countLabel"></span>
+      <div class="segmented" role="group" aria-label="Affichage">
+        <button type="button" id="btnViewCards" aria-pressed="true" onclick="setView('cards')"></button>
+        <button type="button" id="btnViewTable" aria-pressed="false" onclick="setView('table')"></button>
+      </div>
+      <button type="button" class="btn-ghost" onclick="exportExcel()" id="exportBtn"></button>
     </div>
   </div>
 
-  <div class="filters">
-    <div class="filter-chip">
-      Ville
-      <select id="filterVille" onchange="applyFilters()"><option value="">Toutes</option></select>
+  <div class="card-grid" id="cardGrid"></div>
+  <div id="tableBlock" hidden>
+    <div class="legend" style="margin-bottom:12px">
+      <span><span class="est" style="margin:0">≈</span> estimé</span>
+      <span><span class="ok-mark" style="margin:0">✓</span> trouvé dans l'annonce</span>
+      <span><span class="sw-miss"></span> à compléter</span>
+      <span><span class="sw-edit"></span> modifiable</span>
     </div>
-    <div class="filter-chip">
-      Rendement min.
-      <select id="filterRendement" onchange="applyFilters()">
-        <option value="0">Tous</option>
-        <option value="3">3% et +</option>
-        <option value="5">5% et +</option>
-        <option value="7">7% et +</option>
-        <option value="10">10% et +</option>
-      </select>
-    </div>
-    <div class="filter-chip">
-      Score min.
-      <select id="filterScore" onchange="applyFilters()">
-        <option value="0">Tous</option>
-        <option value="50">50 et +</option>
-        <option value="65">65 et +</option>
-        <option value="75">75 et +</option>
-      </select>
-    </div>
-    <div class="filter-chip">
-      Prix/m² max.
-      <select id="filterPrixM2" onchange="applyFilters()">
-        <option value="999999">Tous</option>
-        <option value="2500">2 500 € et moins</option>
-        <option value="3500">3 500 € et moins</option>
-        <option value="4500">4 500 € et moins</option>
-        <option value="6000">6 000 € et moins</option>
-      </select>
-    </div>
-    <div class="filter-chip">
-      Trier par
-      <select id="filterTri" onchange="applyFilters()">
-        <option value="recent">Plus récent</option>
-        <option value="score">Meilleur score</option>
-        <option value="rendement">Rendement net décroissant</option>
-        <option value="prix_asc">Prix croissant</option>
-        <option value="prix_desc">Prix décroissant</option>
-      </select>
-    </div>
+    <div class="table-wrap" id="tableWrap"></div>
   </div>
+</main>
 
-  <div class="grid" id="cardGrid"></div>
-  <div class="table-wrap" id="tableWrap" style="display:none;"></div>
-</div>
-
-<footer>AxIA — comparaison marché DVF (Cerema, data.gouv.fr), loyers ANIL (Carte des loyers), taux de crédit indicatif (moyenne nationale 25 ans, août 2026).</footer>
+<footer class="app-footer">AxIA — ventes DVF (Cerema, data.gouv.fr), loyers ANIL (Carte des loyers), taux de crédit indicatif (moyenne nationale 25 ans). Estimations indicatives, à vérifier avant toute décision.</footer>
 
 <script>
+const { icon, esc, currency, signed, pct, signedPct, scoreColor, scoreBg, ring, marketBlock, normalizeEntry, missingCount } = AxIA;
 let listings = [];
 let currentView = 'cards';
 let lastDisplayed = [];
 
+document.getElementById('btnViewCards').innerHTML = icon('grid') + 'Cartes';
+document.getElementById('btnViewTable').innerHTML = icon('list') + 'Tableau';
+document.getElementById('exportBtn').innerHTML = icon('download') + 'Exporter Excel';
+
 function setView(view){
   currentView = view;
-  document.getElementById('btnViewCards').classList.toggle('active', view === 'cards');
-  document.getElementById('btnViewTable').classList.toggle('active', view === 'table');
-  document.getElementById('cardGrid').style.display = view === 'cards' ? 'grid' : 'none';
-  document.getElementById('tableWrap').style.display = view === 'table' ? 'block' : 'none';
+  document.getElementById('btnViewCards').setAttribute('aria-pressed', view === 'cards');
+  document.getElementById('btnViewTable').setAttribute('aria-pressed', view === 'table');
+  document.getElementById('cardGrid').hidden = view !== 'cards';
+  document.getElementById('tableBlock').hidden = view !== 'table';
   applyFilters();
 }
 
-function scoreColor(score){
-  if(score >= 75) return "#4caf74";
-  if(score >= 55) return "#d4a94a";
-  return "#e0645a";
+/* ===== Indicateurs ===== */
+function renderKpis(list){
+  const el = document.getElementById('kpis');
+  if(!listings.length){ el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  const withNet = list.filter(l => l.financials.rentabiliteNette !== null && l.financials.rentabiliteNette !== undefined);
+  const avgNet = withNet.length ? withNet.reduce((a, l) => a + l.financials.rentabiliteNette, 0) / withNet.length : null;
+  const cf = list.reduce((a, l) => a + (l.financials.cashFlowMensuel || 0), 0);
+  const best = [...list].sort((a, b) => (b.financials.score || 0) - (a.financials.score || 0))[0];
+  const missing = list.reduce((a, l) => a + missingCount(l), 0);
+  el.innerHTML = `
+    <div class="kpi"><div class="kpi-label">Rendement net moyen</div><div class="kpi-value">${pct(avgNet)}</div></div>
+    <div class="kpi"><div class="kpi-label">Cash-flow cumulé</div><div class="kpi-value ${cf >= 0 ? 'pos' : 'neg'}">${signed(cf)}<span class="kpi-unit"> /mois</span></div></div>
+    <div class="kpi"><div class="kpi-label">Meilleur score</div><div class="kpi-value">${best ? best.financials.score : '—'}<span class="kpi-unit">${best ? ' · ' + esc(best.listing.ville || '') : ''}</span></div></div>
+    <div class="kpi ${missing ? 'alert' : ''}"><div class="kpi-label">À compléter</div><div class="kpi-value ${missing ? 'neg' : ''}">${missing}<span class="kpi-unit"> champ${missing > 1 ? 's' : ''} manquant${missing > 1 ? 's' : ''}</span></div></div>`;
 }
 
-function ring(score){
-  const r = 18, c = 2*Math.PI*r;
-  const offset = c - (score/100)*c;
-  const color = scoreColor(score);
-  return `
-  <svg class="score-ring" viewBox="0 0 44 44">
-    <circle cx="22" cy="22" r="${r}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>
-    <circle cx="22" cy="22" r="${r}" fill="none" stroke="${color}" stroke-width="4"
-      stroke-dasharray="${c}" stroke-dashoffset="${offset}"
-      stroke-linecap="round" transform="rotate(-90 22 22)"/>
-    <text x="22" y="26" text-anchor="middle">${score}</text>
-  </svg>`;
-}
-
-function currency(n){
-  return Math.round(n || 0).toLocaleString('fr-FR') + ' €';
-}
-function pct(n){
-  return (n === null || n === undefined) ? 'N/A' : (n > 0 ? '+' : '') + n.toFixed(1) + '%';
-}
-
-/* ===== VUE CARTES ===== */
-function marketBar(l){
-  if(!l.sector || !l.financials.prixM2) return '';
-  const { min, avg, max } = l.sector;
-  const clamp = (v) => Math.max(3, Math.min(97, v));
-  const posPrice = clamp(((l.financials.prixM2 - min) / (max - min)) * 100);
-  const posAvg = clamp(((avg - min) / (max - min)) * 100);
-  const below = l.financials.ecartMarche <= 0;
-  const pinColor = below ? "var(--green)" : "var(--red)";
-  const deltaText = below
-    ? `${Math.abs(l.financials.ecartMarche)}% sous la moyenne du secteur`
-    : `${l.financials.ecartMarche}% au-dessus de la moyenne du secteur`;
-  return `
-    <div class="market-block">
-      <div class="market-label"><span>Comparaison secteur</span><b>DVF</b></div>
-      <div class="market-track">
-        <div class="market-avg" style="left:${posAvg}%"></div>
-        <div class="market-pin" style="left:${posPrice}%; background:${pinColor}"></div>
-      </div>
-      <div class="market-caption"><b>${l.financials.prixM2.toLocaleString('fr-FR')} €/m²</b> — ${deltaText}</div>
-    </div>
-  `;
-}
-
-function rentBlock(l){
-  const badge = l.project.rentEstimated
-    ? `<span class="rent-badge estimated">Estimé${l.project.rentFiable === false ? ' (peu fiable)' : ''}</span>`
-    : `<span class="rent-badge corrected">Corrigé par vous</span>`;
-  return `
-    <div class="rent-block">
-      <div class="rent-label">Loyer mensuel ${badge}</div>
-      <div class="rent-edit">
-        <input type="number" class="rent-input" value="${l.project.monthlyRent || ''}" min="0" step="10" />
-        <button class="rent-save" onclick="updateRent('${l.id}', this.previousElementSibling)">OK</button>
-      </div>
-    </div>
-  `;
-}
-
+/* ===== Vue cartes ===== */
 function renderCards(list){
   const grid = document.getElementById('cardGrid');
-  grid.innerHTML = list.map((l) => `
-    <div class="card">
-      <div class="card-photo" ${l.listing.imageUrl ? `style="background-image:url('${l.listing.imageUrl}')"` : ''}>
-        <div class="card-badge">${l.listing.surface || '?'} m²</div>
-        ${l.listing.imageIsCity ? '<div class="card-badge photo-source">Photo de la ville</div>' : ''}
-        <button class="delete-btn" onclick="event.stopPropagation(); removeListing('${l.id}')" title="Supprimer">✕</button>
+  if(!list.length){
+    grid.innerHTML = `<div class="empty">${listings.length ? 'Aucune analyse ne correspond à ces filtres.' : 'Aucune analyse pour l\'instant. Collez une annonce ci-dessus pour commencer.'}</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(l => {
+    const f = l.financials, lst = l.listing, id = esc(l.id);
+    const photo = lst.imageUrl ? ` has-img" style="background-image:url('${esc(lst.imageUrl)}')` : '';
+    const badges = [lst.surface ? `${lst.surface} m²` : null, lst.dpe ? `DPE ${lst.dpe}` : null, lst.imageIsCity ? 'Photo de la ville' : null]
+      .filter(Boolean).map(b => `<span class="badge">${esc(b)}</span>`).join('');
+    const net = f.rentabiliteNette !== null && f.rentabiliteNette !== undefined ? pct(f.rentabiliteNette) : '—';
+    const ecClass = f.ecartMarche === null || f.ecartMarche === undefined ? '' : (f.ecartMarche <= 0 ? 'pos' : 'neg');
+    return `
+    <article class="card">
+      <div class="card-photo${photo}">
+        <span class="ph">${icon('home', 'icon-lg')}</span><span class="ph">Photo de l'annonce</span>
+        <div class="badges">${badges}</div>
       </div>
       <div class="card-body">
-        <div class="card-top">
+        <div class="card-head">
           <div>
-            <div class="card-price">${currency(l.listing.prix)}</div>
-            <div class="card-city">${l.listing.ville || 'Localisation inconnue'}</div>
+            <div class="card-price">${currency(lst.prix)}</div>
+            <div class="card-city">${esc(AxIA.title(l))}</div>
           </div>
-          ${ring(l.financials.score)}
+          ${ring(f.score)}
         </div>
-        <div class="card-metrics">
-          <div class="metric">
-            <div class="label">Rendement net</div>
-            <div class="value">${l.financials.rentabiliteNette !== null ? l.financials.rentabiliteNette.toFixed(1) + '%' : 'N/A'}</div>
-          </div>
-          <div class="metric">
-            <div class="label">Cash-flow</div>
-            <div class="value" style="color:${l.financials.cashFlowMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${l.financials.cashFlowMensuel >= 0 ? '+' : ''}${currency(l.financials.cashFlowMensuel)}/mois</div>
-          </div>
+        <div class="metrics3">
+          <div><div class="metric-label">Rendement net</div><div class="metric-value">${net}</div></div>
+          <div><div class="metric-label">Cash-flow</div><div class="metric-value ${f.cashFlowMensuel >= 0 ? 'pos' : 'neg'}">${signed(f.cashFlowMensuel)}</div></div>
+          <div><div class="metric-label">Vs marché</div><div class="metric-value ${ecClass}">${signedPct(f.ecartMarche)}</div></div>
         </div>
-        ${rentBlock(l)}
-        ${marketBar(l)}
-        ${l.listing.url ? `<a class="card-footer-link" href="${l.listing.url}" target="_blank" rel="noopener">Voir l'annonce d'origine →</a>` : ''}
-        <a class="card-footer-link travaux-link" href="travaux.html?id=${l.id}">🛠 Chiffrer les travaux →</a>
-        <a class="card-footer-link fiscal-link" href="fiscalite.html?id=${l.id}">📊 Simulateur fiscal →</a>
+        ${marketBlock(l)}
+        <div class="card-actions">
+          <a class="btn btn-outline-gold" href="fiche.html?id=${encodeURIComponent(l.id)}">Ouvrir la fiche</a>
+          ${lst.url ? `<a class="icon-btn" href="${esc(lst.url)}" target="_blank" rel="noopener" aria-label="Voir l'annonce d'origine">${icon('external')}</a>` : ''}
+          <button type="button" class="icon-btn danger" onclick="removeListing('${id}')" aria-label="Supprimer l'analyse">${icon('trash')}</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    </article>`;
+  }).join('');
 }
 
-/* ===== VUE TABLEAU ===== */
-function numCell(l, group, field, opts){
+/* ===== Vue tableau ===== */
+function numCell(l, field, opts){
   opts = opts || {};
-  const value = group === 'project' ? l.project[field] : l.listing[field];
-  const missing = opts.missing ? ' cell-missing' : '';
-  return `<input type="number" class="table-input${missing}" style="width:${opts.width||'85px'}" value="${value ?? 0}" step="${opts.step||1}" onchange="updateField('${l.id}','${group}','${field}',this.value,true)">`;
+  const v = l.project[field];
+  const cls = opts.missing ? ' cell-missing' : '';
+  return `<input type="number" class="table-input${cls}" style="width:${opts.width || '84px'}" value="${v ?? ''}" step="${opts.step || 1}" aria-label="${esc(opts.label || field)}" onchange="updateField('${esc(l.id)}','project','${field}',this.value,true)">`;
 }
 function textCell(l, group, field, width, missing){
-  const value = group === 'root' ? (l[field] ?? '') : (group === 'project' ? l.project[field] : l.listing[field]);
+  const v = group === 'root' ? l[field] : l.listing[field];
   const cls = missing ? ' cell-missing' : '';
-  return `<input type="text" class="table-input${cls}" style="width:${width||'140px'}" value="${(value ?? '').toString().replace(/"/g,'&quot;')}" onchange="updateField('${l.id}','${group}','${field}',this.value,false)">`;
+  return `<input type="text" class="table-input text${cls}" style="width:${width || '140px'}" value="${esc(v ?? '')}" aria-label="${esc(field)}" onchange="updateField('${esc(l.id)}','${group}','${field}',this.value,false)">`;
 }
-function estBadge(source){
-  if(source === 'estimation') return '<span class="src-badge est" title="Estimation automatique">≈</span>';
-  if(source === 'annonce') return '<span class="src-badge ok" title="Trouvé dans l\'annonce">✓</span>';
+function srcMark(source){
+  if(source === 'estimation') return '<span class="est" title="Estimation automatique">≈</span>';
+  if(source === 'annonce') return '<span class="ok-mark" title="Trouvé dans l\'annonce">✓</span>';
   return '';
 }
 
-const TABLE_COLUMNS = [
-  "ID", "Contact / Agence", "Lien", "Ville", "Quartier", "Type", "Surface m²",
-  "Prix FAI", "Prix/m²", "Écart marché", "DPE",
-  "Travaux", "Frais de notaire", "Total projet",
-  "Loyer mensuel", "Loyer annuel",
-  "Taxe foncière/an", "Charges copro/mois", "Assurance PNO/mois", "Gestion/mois",
-  "Charges total/mois", "Charges total/an",
-  "Taux crédit %/an", "Crédit mensuel (25 ans)",
-  "Taux assur. emprunteur %/an", "Assur. emprunteur/mois",
-  "Rentabilité brute", "Rentabilité nette", "Cash flow mensuel", "SCORE", "Travaux", ""
-];
-
 function renderTable(list){
   const wrap = document.getElementById('tableWrap');
-  const headerRow = TABLE_COLUMNS.map(c => `<th>${c}</th>`).join('');
+  const g = (label, span, cls) => `<th colspan="${span}" scope="colgroup" class="${cls || ''}">${label}</th>`;
+  const c = (label, cls) => `<th scope="col" class="${cls || ''}">${label}</th>`;
+  const head = `
+    <thead>
+      <tr class="grp">${g('Bien', 7)}${g('Achat', 6, 'gsep')}${g('Loyer', 2, 'gsep')}${g('Charges', 5, 'gsep')}${g('Crédit · 25 ans', 5, 'gsep')}${g('Résultats', 4, 'gsep res')}<th class="res"><span class="sr-only">Actions</span></th></tr>
+      <tr class="cols">
+        ${c('Bien', 'sticky-col')}${c('Contact / agence')}${c('Lien')}${c('Ville')}${c('Quartier')}${c('m²', 'num')}${c('DPE', 'ctr')}
+        ${c('Prix FAI', 'num gsep')}${c('Prix/m²', 'num')}${c('Vs marché', 'num')}${c('Travaux', 'num')}${c('Notaire', 'num')}${c('Total projet', 'num')}
+        ${c('/mois', 'num gsep')}${c('/an', 'num')}
+        ${c('Taxe fonc./an', 'num gsep')}${c('Copro/mois', 'num')}${c('PNO/mois', 'num')}${c('Gestion/mois', 'num')}${c('Total/mois', 'num')}
+        ${c('Apport', 'num gsep')}${c('Taux %', 'num')}${c('Mensualité', 'num')}${c('Assur. %', 'num')}${c('Assur./mois', 'num')}
+        ${c('Brut', 'num gsep res')}${c('Net', 'num res')}${c('Cash-flow', 'num res')}${c('Score', 'ctr res')}<th class="res"></th>
+      </tr>
+    </thead>`;
 
   const rows = list.map(l => {
     const f = l.financials, p = l.project, lst = l.listing, src = p.sources || {};
+    const ecClass = f.ecartMarche === null || f.ecartMarche === undefined ? '' : (f.ecartMarche <= 0 ? 'pos' : 'neg');
     return `<tr>
-      <td>${textCell(l, 'root', 'label', '170px')}</td>
+      <td class="sticky-col">${textCell(l, 'root', 'label', '170px')}</td>
       <td>${textCell(l, 'listing', 'contact', '150px', !lst.contact)}</td>
-      <td>${lst.url ? `<a class="table-link" href="${lst.url}" target="_blank" rel="noopener">Voir</a>` : '—'}</td>
-      <td>${lst.ville || '—'}</td>
+      <td>${lst.url ? `<a href="${esc(lst.url)}" target="_blank" rel="noopener">Voir</a>` : '—'}</td>
+      <td>${esc(lst.ville || '—')}</td>
       <td>${textCell(l, 'listing', 'quartier', '120px', !lst.quartier)}</td>
-      <td>${lst.type_bien || '—'}</td>
-      <td>${lst.surface ?? '—'}</td>
-      <td class="col-computed">${currency(lst.prix)}</td>
-      <td class="col-computed">${f.prixM2 ? currency(f.prixM2) : '—'}</td>
-      <td class="col-computed">${pct(f.ecartMarche)}</td>
-      <td class="${!lst.dpe ? 'cell-missing-static' : ''}">${lst.dpe || '—'}</td>
-      <td>${numCell(l, 'project', 'travaux', {width:'90px', step:500})}</td>
-      <td>${numCell(l, 'project', 'fraisNotaire', {width:'95px', step:500})}</td>
-      <td class="col-computed">${currency(f.totalProjet)}</td>
-      <td>${numCell(l, 'project', 'monthlyRent', {width:'85px', step:10})} ${estBadge(p.rentEstimated ? 'estimation' : 'manuel')}</td>
-      <td class="col-computed">${currency(f.loyerAnnuel)}</td>
-      <td>${numCell(l, 'project', 'taxeFonciereAnnuelle', {width:'85px', step:50, missing: src.taxeFonciereAnnuelle === 'manquant'})} ${estBadge(src.taxeFonciereAnnuelle)}</td>
-      <td>${numCell(l, 'project', 'chargesCoproMensuelles', {width:'80px', missing: src.chargesCoproMensuelles === 'manquant'})} ${estBadge(src.chargesCoproMensuelles)}</td>
-      <td>${numCell(l, 'project', 'assurancePNO', {width:'75px', missing: src.assurancePNO === 'manquant'})} ${estBadge(src.assurancePNO)}</td>
-      <td>${numCell(l, 'project', 'gestionMensuelle', {width:'75px'})}</td>
-      <td class="col-computed">${currency(f.chargesTotalMensuel)}</td>
-      <td class="col-computed">${currency(f.chargesTotalAnnuel)}</td>
-      <td>${numCell(l, 'project', 'tauxCredit', {width:'65px', step:0.05})}</td>
-      <td class="col-computed">${currency(f.creditMensuel)}</td>
-      <td>${numCell(l, 'project', 'tauxAssuranceEmprunteur', {width:'65px', step:0.01})}</td>
-      <td class="col-computed">${currency(f.assuranceEmprunteurMensuelle)}</td>
-      <td class="col-computed">${f.rentabiliteBrut !== null ? f.rentabiliteBrut.toFixed(2)+'%' : '—'}</td>
-      <td class="col-computed">${f.rentabiliteNette !== null ? f.rentabiliteNette.toFixed(2)+'%' : '—'}</td>
-      <td class="col-computed" style="color:${f.cashFlowMensuel >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(f.cashFlowMensuel)}</td>
-      <td class="col-score" style="color:${scoreColor(f.score)}">${f.score}</td>
-      <td><a class="table-link" href="travaux.html?id=${l.id}" title="Chiffrer les travaux">🛠</a></td>
-      <td><button class="table-delete" onclick="removeListing('${l.id}')">✕</button></td>
+      <td class="num">${lst.surface ?? '—'}</td>
+      <td class="ctr ${!lst.dpe ? 'cell-missing-static' : ''}">${esc(lst.dpe || '—')}</td>
+      <td class="num gsep">${currency(lst.prix)}</td>
+      <td class="num">${f.prixM2 ? currency(f.prixM2) : '—'}</td>
+      <td class="num ${ecClass}" style="font-weight:600">${signedPct(f.ecartMarche)}</td>
+      <td class="num">${numCell(l, 'travaux', { width: '88px', step: 500, label: 'Travaux' })}</td>
+      <td class="num">${numCell(l, 'fraisNotaire', { width: '88px', step: 500, label: 'Frais de notaire' })}</td>
+      <td class="num" style="font-weight:600">${currency(f.totalProjet)}</td>
+      <td class="num gsep">${numCell(l, 'monthlyRent', { width: '76px', step: 10, label: 'Loyer mensuel' })}${srcMark(p.rentEstimated ? 'estimation' : '')}</td>
+      <td class="num">${currency(f.loyerAnnuel)}</td>
+      <td class="num gsep">${numCell(l, 'taxeFonciereAnnuelle', { width: '80px', step: 50, missing: src.taxeFonciereAnnuelle === 'manquant', label: 'Taxe foncière annuelle' })}${srcMark(src.taxeFonciereAnnuelle)}</td>
+      <td class="num">${numCell(l, 'chargesCoproMensuelles', { width: '70px', missing: src.chargesCoproMensuelles === 'manquant', label: 'Charges de copropriété' })}${srcMark(src.chargesCoproMensuelles)}</td>
+      <td class="num">${numCell(l, 'assurancePNO', { width: '60px', missing: src.assurancePNO === 'manquant', label: 'Assurance PNO' })}${srcMark(src.assurancePNO)}</td>
+      <td class="num">${numCell(l, 'gestionMensuelle', { width: '60px', label: 'Gestion' })}</td>
+      <td class="num" style="font-weight:600">${currency(f.chargesTotalMensuel)}</td>
+      <td class="num gsep">${numCell(l, 'apport', { width: '84px', step: 1000, label: 'Apport' })}</td>
+      <td class="num">${numCell(l, 'tauxCredit', { width: '56px', step: 0.05, label: 'Taux du crédit' })}</td>
+      <td class="num">${currency(f.creditMensuel)}</td>
+      <td class="num">${numCell(l, 'tauxAssuranceEmprunteur', { width: '56px', step: 0.01, label: 'Taux assurance emprunteur' })}</td>
+      <td class="num">${currency(f.assuranceEmprunteurMensuelle)}</td>
+      <td class="num gsep res">${pct(f.rentabiliteBrut, 2)}</td>
+      <td class="num res" style="font-weight:600">${pct(f.rentabiliteNette, 2)}</td>
+      <td class="num res ${f.cashFlowMensuel >= 0 ? 'pos' : 'neg'}" style="font-weight:700">${signed(f.cashFlowMensuel)}</td>
+      <td class="ctr res"><span class="score-pill" style="background:${scoreBg(f.score)};color:${scoreColor(f.score)}">${f.score}</span></td>
+      <td class="res"><div style="display:flex;gap:6px;align-items:center">
+        <a class="row-link" href="fiche.html?id=${encodeURIComponent(l.id)}">Fiche</a>
+        <button type="button" class="row-del" onclick="removeListing('${esc(l.id)}')" aria-label="Supprimer l'analyse">${icon('trash')}</button>
+      </div></td>
     </tr>`;
   }).join('');
 
   const n = list.length || 1;
-  const avg = (arr) => arr.reduce((a,b) => a + (b || 0), 0) / n;
-  const totalCashflow = list.reduce((a,l) => a + (l.financials.cashFlowMensuel || 0), 0);
-  const avgBrut = avg(list.map(l => l.financials.rentabiliteBrut || 0));
-  const avgNette = avg(list.map(l => l.financials.rentabiliteNette || 0));
-  const avgScore = avg(list.map(l => l.financials.score || 0));
-
-  const footer = list.length ? `
-    <tfoot><tr>
-      <td>Moyennes / Totaux</td>
-      <td colspan="25"></td>
-      <td class="col-computed">${avgBrut.toFixed(2)}%</td>
-      <td class="col-computed">${avgNette.toFixed(2)}%</td>
-      <td class="col-computed" style="color:${totalCashflow >= 0 ? 'var(--green)' : 'var(--red)'}">${currency(totalCashflow)} (total)</td>
-      <td class="col-score">${Math.round(avgScore)}</td>
-      <td></td>
+  const avg = arr => arr.reduce((a, b) => a + (b || 0), 0) / n;
+  const totalCf = list.reduce((a, l) => a + (l.financials.cashFlowMensuel || 0), 0);
+  const foot = list.length ? `<tfoot><tr>
+      <td class="sticky-col" style="color:var(--ink-soft);font-weight:600">Moyennes · total cash-flow</td>
+      <td colspan="24"></td>
+      <td class="num gsep">${pct(avg(list.map(l => l.financials.rentabiliteBrut)), 2)}</td>
+      <td class="num">${pct(avg(list.map(l => l.financials.rentabiliteNette)), 2)}</td>
+      <td class="num ${totalCf >= 0 ? 'pos' : 'neg'}">${signed(totalCf)}</td>
+      <td class="ctr">${Math.round(avg(list.map(l => l.financials.score)))}</td>
       <td></td>
     </tr></tfoot>` : '';
 
-  wrap.innerHTML = `<table class="data-table"><thead><tr>${headerRow}</tr></thead><tbody>${rows}</tbody>${footer}</table>`;
+  wrap.innerHTML = `<table class="data-table">${head}<tbody>${rows}</tbody>${foot}</table>`;
 }
 
 function render(list){
   lastDisplayed = list;
-  document.getElementById('countLabel').textContent = `${list.length} analyse${list.length > 1 ? 's' : ''} affichée${list.length > 1 ? 's' : ''} sur ${listings.length}`;
+  document.getElementById('countLabel').textContent = listings.length ? `${list.length} sur ${listings.length}` : '';
+  document.getElementById('subLabel').textContent = listings.length
+    ? `${listings.length} bien${listings.length > 1 ? 's' : ''} analysé${listings.length > 1 ? 's' : ''} · comparés aux ventes DVF et aux loyers ANIL`
+    : 'Comparées aux ventes DVF et aux loyers ANIL';
+  renderKpis(list);
   if(currentView === 'cards') renderCards(list);
   else renderTable(list);
 }
 
 function updateVilleFilter(){
   const select = document.getElementById('filterVille');
-  const currentValue = select.value;
+  const current = select.value;
   const villes = [...new Set(listings.map(l => l.listing.ville).filter(Boolean))].sort();
-  select.innerHTML = '<option value="">Toutes</option>' + villes.map(v => `<option value="${v}">${v}</option>`).join('');
-  if (villes.includes(currentValue)) select.value = currentValue;
+  select.innerHTML = '<option value="">Toutes</option>' + villes.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if(villes.includes(current)) select.value = current;
 }
 
 function applyFilters(){
@@ -573,18 +277,18 @@ function applyFilters(){
   const prixM2Max = parseFloat(document.getElementById('filterPrixM2').value);
   const tri = document.getElementById('filterTri').value;
 
-  let filtered = listings.filter(l => {
-    if (ville && l.listing.ville !== ville) return false;
-    if ((l.financials.rentabiliteNette ?? -Infinity) < rendementMin) return false;
-    if ((l.financials.score ?? -Infinity) < scoreMin) return false;
-    if ((l.financials.prixM2 ?? Infinity) > prixM2Max) return false;
+  const filtered = listings.filter(l => {
+    if(ville && l.listing.ville !== ville) return false;
+    if(rendementMin > -999 && (l.financials.rentabiliteNette ?? -Infinity) < rendementMin) return false;
+    if((l.financials.score ?? -Infinity) < scoreMin) return false;
+    if(prixM2Max < 999999 && (l.financials.prixM2 ?? Infinity) > prixM2Max) return false;
     return true;
   });
-
   const sorters = {
     recent: (a, b) => new Date(b.savedAt) - new Date(a.savedAt),
     score: (a, b) => (b.financials.score ?? 0) - (a.financials.score ?? 0),
     rendement: (a, b) => (b.financials.rentabiliteNette ?? 0) - (a.financials.rentabiliteNette ?? 0),
+    cashflow: (a, b) => (b.financials.cashFlowMensuel ?? 0) - (a.financials.cashFlowMensuel ?? 0),
     prix_asc: (a, b) => (a.listing.prix ?? 0) - (b.listing.prix ?? 0),
     prix_desc: (a, b) => (b.listing.prix ?? 0) - (a.listing.prix ?? 0)
   };
@@ -592,65 +296,31 @@ function applyFilters(){
   render(filtered);
 }
 
-// Complète les champs manquants d'une ancienne analyse avec des valeurs par défaut sûres,
-// au lieu de la supprimer. Ne renvoie null que si l'analyse est vraiment irrécupérable
-// (structure d'avant l'existence même des calculs financiers).
-function normalizeEntry(l){
-  if (!l || !l.listing || !l.project || !l.financials) return null;
-
-  l.project.sources = l.project.sources || {};
-  l.project.tauxAssuranceEmprunteur = l.project.tauxAssuranceEmprunteur ?? 0.34;
-  l.project.travauxDetail = l.project.travauxDetail || null;
-  l.project.gestionMensuelle = l.project.gestionMensuelle ?? 0;
-  l.project.travaux = l.project.travaux ?? 0;
-  l.financials.assuranceEmprunteurMensuelle = l.financials.assuranceEmprunteurMensuelle || 0;
-
-  // Anciens noms de champs (avant le passage taxe foncière annuelle / charges copro) : on les convertit.
-  if (l.project.taxeFonciereAnnuelle === undefined && l.project.taxeFonciereMensuel !== undefined) {
-    l.project.taxeFonciereAnnuelle = Math.round((l.project.taxeFonciereMensuel || 0) * 12);
-    l.project.sources.taxeFonciereAnnuelle = l.project.sources.taxeFonciereAnnuelle || 'manuel';
-  }
-  if (l.project.chargesCoproMensuelles === undefined && l.project.chargesMensuelles !== undefined) {
-    l.project.chargesCoproMensuelles = l.project.chargesMensuelles;
-    l.project.sources.chargesCoproMensuelles = l.project.sources.chargesCoproMensuelles || 'manuel';
-  }
-  l.project.taxeFonciereAnnuelle = l.project.taxeFonciereAnnuelle ?? null;
-  l.project.chargesCoproMensuelles = l.project.chargesCoproMensuelles ?? null;
-  l.project.assurancePNO = l.project.assurancePNO ?? 0;
-
-  return l;
-}
-
 async function loadListings(){
   try {
     const response = await fetch('/api/listings');
     const data = await response.json();
+    if(!response.ok) throw new Error(data.details || data.error || 'Erreur serveur');
     const raw = data.listings || [];
-
     const normalized = raw.map(normalizeEntry);
-    const valid = normalized.filter(Boolean);
-    const irrecuperables = raw.filter((l, i) => normalized[i] === null);
-
-    if (irrecuperables.length > 0) {
-      await Promise.all(irrecuperables.map(l => fetch(`/api/listings/${l.id}`, { method: 'DELETE' }).catch(() => {})));
-      document.getElementById('feedbackMsg').innerHTML =
-        `<div class="success-msg">${irrecuperables.length} analyse${irrecuperables.length > 1 ? 's' : ''} vraiment irrécupérable${irrecuperables.length > 1 ? 's' : ''} supprimée${irrecuperables.length > 1 ? 's' : ''}.</div>`;
+    const irrecuperables = raw.filter((l, i) => normalized[i] === null && l && l.id);
+    if(irrecuperables.length){
+      await Promise.all(irrecuperables.map(l => fetch(`/api/listings/${encodeURIComponent(l.id)}`, { method: 'DELETE' }).catch(() => {})));
     }
-
-    listings = valid;
+    listings = normalized.filter(Boolean);
     updateVilleFilter();
     applyFilters();
   } catch(err) {
-    console.error('Impossible de charger les analyses sauvegardées :', err.message);
+    document.getElementById('feedbackMsg').innerHTML = `<div class="error-msg">Impossible de charger vos analyses : ${esc(err.message)}</div>`;
   }
 }
 
 async function removeListing(id){
   if(!confirm('Supprimer cette analyse ?')) return;
   try {
-    const response = await fetch(`/api/listings/${id}`, { method: 'DELETE' });
+    const response = await fetch(`/api/listings/${encodeURIComponent(id)}`, { method: 'DELETE' });
     const data = await response.json();
-    listings = data.listings || [];
+    listings = (data.listings || []).map(normalizeEntry).filter(Boolean);
     updateVilleFilter();
     applyFilters();
   } catch(err) {
@@ -659,69 +329,45 @@ async function removeListing(id){
 }
 
 async function updateField(id, group, field, rawValue, isNumber){
-  const value = isNumber ? (parseFloat(rawValue) || 0) : rawValue;
+  const value = isNumber ? (rawValue === '' ? null : (parseFloat(rawValue) || 0)) : rawValue;
   const body = group === 'root' ? { [field]: value } : { [group]: { [field]: value } };
+  if(group === 'project' && field === 'monthlyRent') body.project.rentEstimated = false;
   try {
-    const response = await fetch(`/api/listings/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
-    const updated = await response.json();
+    const updated = await AxIA.patchListing(id, body);
     const idx = listings.findIndex(l => l.id === id);
     if(idx !== -1) listings[idx] = updated;
+    updateVilleFilter();
     applyFilters();
   } catch(err) {
     alert('Impossible de mettre à jour cette valeur : ' + err.message);
   }
 }
 
-async function updateRent(id, inputEl){
-  const monthlyRent = parseFloat(inputEl.value);
-  if(isNaN(monthlyRent) || monthlyRent < 0){ alert('Merci d\'entrer un loyer valide.'); return; }
-  try {
-    const response = await fetch(`/api/listings/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ project: { monthlyRent, rentEstimated: false } })
-    });
-    if(!response.ok){ const err = await response.json(); throw new Error(err.details || err.error); }
-    const updated = await response.json();
-    const idx = listings.findIndex(l => l.id === id);
-    if(idx !== -1) listings[idx] = updated;
-    applyFilters();
-  } catch(err) {
-    alert('Impossible de mettre à jour le loyer : ' + err.message);
-  }
-}
-
 async function analyzeUrl(){
-  const url = document.getElementById('urlInput').value.trim();
-  const feedbackMsg = document.getElementById('feedbackMsg');
+  const input = document.getElementById('urlInput');
+  const url = input.value.trim();
+  const feedback = document.getElementById('feedbackMsg');
   const btn = document.getElementById('analyzeBtn');
-
-  if(!url){ feedbackMsg.innerHTML = '<div class="error-msg">Veuillez coller une URL ou le texte d\'une annonce.</div>'; return; }
+  if(!url){ feedback.innerHTML = '<div class="error-msg">Collez un lien ou le texte d\'une annonce.</div>'; return; }
 
   btn.disabled = true;
-  feedbackMsg.innerHTML = '<div class="success-msg">Analyse en cours... (extraction IA + comparaison marché + estimation du loyer)</div>';
-
+  btn.textContent = 'Analyse…';
+  feedback.innerHTML = '<div class="success-msg"><span class="spinner"></span>Lecture de l\'annonce, comparaison au marché et estimation du loyer…</div>';
   try {
-    const response = await fetch('/api/analyze', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url })
-    });
-    if(!response.ok) { const error = await response.json(); throw new Error(error.details || error.error || 'Erreur serveur'); }
-
-    const saved = await response.json();
+    const response = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
+    const data = await response.json();
+    if(!response.ok) throw new Error(data.details || data.error || 'Erreur serveur');
+    const saved = normalizeEntry(data);
     listings.unshift(saved);
     updateVilleFilter();
     applyFilters();
-    feedbackMsg.innerHTML = '<div class="success-msg">✓ Annonce analysée et sauvegardée. Vous pouvez ajuster tous les paramètres financiers dans le tableau.</div>';
-    document.getElementById('urlInput').value = '';
+    feedback.innerHTML = `<div class="success-msg">Annonce analysée. <a href="fiche.html?id=${encodeURIComponent(saved.id)}">Ouvrir la fiche</a> pour ajuster apport, charges et loyer.</div>`;
+    input.value = '';
   } catch(err) {
-    feedbackMsg.innerHTML = `<div class="error-msg">Erreur : ${err.message}</div>`;
+    feedback.innerHTML = `<div class="error-msg">Erreur : ${esc(err.message)}</div>`;
   } finally {
     btn.disabled = false;
+    btn.textContent = 'Analyser';
   }
 }
 
@@ -750,6 +396,8 @@ function exportExcel(){
     "Gestion mensuelle": l.project.gestionMensuelle || 0,
     "Charges total mensuel": l.financials.chargesTotalMensuel || 0,
     "Charges total annuel": l.financials.chargesTotalAnnuel || 0,
+    "Apport": l.project.apport || 0,
+    "Capital emprunté": l.financials.capitalEmprunte || 0,
     "Taux crédit %": l.project.tauxCredit || 0,
     "Crédit mensuel": l.financials.creditMensuel || 0,
     "Taux assurance emprunteur %": l.project.tauxAssuranceEmprunteur || 0,
@@ -762,11 +410,11 @@ function exportExcel(){
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Analyse Annonce");
-  XLSX.writeFile(wb, `AxIA_analyses_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `AxIA_analyses_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+AxIA.renderNav('analyses');
 loadListings();
 </script>
-
 </body>
 </html>

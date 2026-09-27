@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AxIA — Fiche bien</title>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
+</head>
+<body>
+
+<div id="app-nav"></div>
+
+<main class="container">
+  <div id="fiche-header"></div>
+  <p class="page-status" id="pageStatus" role="status" aria-live="polite">Chargement…</p>
+
+  <div class="fiche-grid" id="ficheBody" hidden>
+    <div class="fiche-main" id="groups"></div>
+    <div class="fiche-side" id="side"></div>
+  </div>
+</main>
+
+<footer class="app-footer">Les champs soulignés en pointillé sont modifiables : chaque changement recalcule la rentabilité, le cash-flow et le score.</footer>
+
+<script>
+const { icon, esc, currency, signed, pct, marketBlock } = AxIA;
+const listingId = new URLSearchParams(location.search).get('id');
+let entry = null;
+
+const SRC_LABEL = { ann: 'Annonce', est: 'Estimé', you: 'Saisi', miss: 'À compléter', chif: 'Chiffrage' };
+function srcFromTracked(s){
+  return { annonce: 'ann', estimation: 'est', manquant: 'miss', manuel: 'you', chiffrage: 'chif' }[s] || '';
+}
+function badge(kind, extra){
+  if(!kind) return '';
+  const cls = kind === 'chif' ? 'you' : kind;
+  return `<span class="src ${cls}">${SRC_LABEL[kind]}${extra ? ' · ' + extra : ''}</span>`;
+}
+
+// Ligne modifiable : group = 'project' | 'listing'
+function inputRow(label, group, field, value, opts){
+  opts = opts || {};
+  const missing = opts.src === 'miss';
+  return `<div class="frow">
+    <div class="frow-label"><label for="f_${field}">${label}</label>${badge(opts.src, opts.srcExtra)}</div>
+    <input id="f_${field}" type="number" class="frow-input${missing ? ' missing' : ''}" value="${value ?? ''}" step="${opts.step || 1}" placeholder="—"
+      onchange="saveField('${group}','${field}',this.value)">
+    <span class="frow-unit">${opts.unit || '€'}</span>
+  </div>`;
+}
+// Ligne calculée (non modifiable)
+function calcRow(label, value, opts){
+  opts = opts || {};
+  return `<div class="frow${opts.total ? ' total' : ''}">
+    <div class="frow-label"><span>${label}</span></div>
+    <span class="frow-value ${opts.cls || ''}">${value}</span>
+    <span class="frow-unit">${opts.unit || ''}</span>
+  </div>`;
+}
+function group(title, rows, extraTitle){
+  return `<section class="group-card"><h2 class="group-title"><span>${title}</span>${extraTitle || ''}</h2>${rows}</section>`;
+}
+
+function render(){
+  const l = entry.listing, p = entry.project, f = entry.financials, src = p.sources || {};
+  AxIA.renderFicheHeader(entry, 'analyse');
+
+  const notaireDefault = l.prix ? Math.round(l.prix * 0.075) : null;
+  const notaireSrc = p.fraisNotaire === notaireDefault ? 'est' : 'you';
+  const loyerSrc = p.rentEstimated ? 'est' : 'you';
+  const travauxSrc = src.travaux === 'chiffrage' ? 'chif' : (p.travaux ? 'you' : '');
+
+  document.getElementById('groups').innerHTML =
+    group('Achat',
+      inputRow('Prix FAI', 'listing', 'prix', l.prix, { src: 'ann', step: 1000 }) +
+      inputRow('Frais de notaire', 'project', 'fraisNotaire', p.fraisNotaire, { src: notaireSrc, srcExtra: notaireSrc === 'est' ? '7,5 %' : '', step: 500 }) +
+      inputRow('Travaux', 'project', 'travaux', p.travaux, { src: travauxSrc, step: 500 }) +
+      calcRow('Total projet', currency(f.totalProjet), { total: true })
+    ) +
+    group('Loyer',
+      inputRow('Loyer mensuel', 'project', 'monthlyRent', p.monthlyRent, { src: loyerSrc, srcExtra: p.rentEstimated && p.rentFiable === false ? 'peu fiable' : '', step: 10 }) +
+      calcRow('Loyer annuel', currency(f.loyerAnnuel), { total: true })
+    ) +
+    group('Charges',
+      inputRow('Taxe foncière', 'project', 'taxeFonciereAnnuelle', p.taxeFonciereAnnuelle, { src: srcFromTracked(src.taxeFonciereAnnuelle), unit: '€/an', step: 50 }) +
+      inputRow('Charges de copropriété', 'project', 'chargesCoproMensuelles', p.chargesCoproMensuelles, { src: srcFromTracked(src.chargesCoproMensuelles), unit: '€/mois' }) +
+      inputRow('Assurance PNO', 'project', 'assurancePNO', p.assurancePNO, { src: srcFromTracked(src.assurancePNO), unit: '€/mois' }) +
+      inputRow('Gestion / comptabilité', 'project', 'gestionMensuelle', p.gestionMensuelle, { unit: '€/mois' }) +
+      calcRow('Total charges', currency(f.chargesTotalMensuel), { total: true, unit: '/mois' })
+    ) +
+    group('Financement · 25 ans',
+      inputRow('Apport', 'project', 'apport', p.apport, { step: 1000 }) +
+      calcRow('Capital emprunté', currency(f.capitalEmprunte ?? f.totalProjet)) +
+      inputRow('Taux du crédit', 'project', 'tauxCredit', p.tauxCredit, { unit: '%', step: 0.05 }) +
+      calcRow('Mensualité', currency(f.creditMensuel), { unit: '/mois' }) +
+      inputRow('Taux assurance emprunteur', 'project', 'tauxAssuranceEmprunteur', p.tauxAssuranceEmprunteur, { unit: '%', step: 0.01 }) +
+      calcRow('Assurance emprunteur', currency(f.assuranceEmprunteurMensuelle), { unit: '/mois' }) +
+      calcRow('Total crédit', currency((f.creditMensuel || 0) + (f.assuranceEmprunteurMensuelle || 0)), { total: true, unit: '/mois' })
+    );
+
+  // Colonne de droite
+  const missing = [];
+  if(src.taxeFonciereAnnuelle === 'manquant') missing.push('Taxe foncière');
+  if(src.chargesCoproMensuelles === 'manquant') missing.push('Charges de copropriété');
+  if(src.assurancePNO === 'manquant') missing.push('Assurance PNO');
+  if(!l.dpe) missing.push('DPE');
+  const market = marketBlock(entry, { scale: true });
+
+  document.getElementById('side').innerHTML = `
+    <section class="group-card results">
+      <h2 class="group-title"><span>Résultats</span></h2>
+      <div class="kpi-label">Cash-flow mensuel</div>
+      <div class="big-number ${f.cashFlowMensuel >= 0 ? 'pos' : 'neg'}">${signed(f.cashFlowMensuel)}</div>
+      <div class="small-note">Loyer − charges − crédit − assurance emprunteur, avant impôt</div>
+      <div class="duo">
+        <div><div class="kpi-label">Rendement brut</div><div class="v">${pct(f.rentabiliteBrut, 2)}</div></div>
+        <div><div class="kpi-label">Rendement net</div><div class="v">${pct(f.rentabiliteNette, 2)}</div></div>
+      </div>
+      <a class="btn btn-outline-gold" style="width:100%;margin-top:18px" href="fiscalite.html?id=${encodeURIComponent(entry.id)}">Voir après impôt</a>
+    </section>
+    ${market ? `<section class="group-card"><h2 class="group-title"><span>Marché du secteur</span></h2>${market}</section>` : ''}
+    ${missing.length ? `<section class="group-card alert">
+      <h2 class="group-title"><span>À compléter</span></h2>
+      <p style="margin:0;font-size:14px;color:var(--ink-2);line-height:1.55">${missing.map(esc).join(', ')} : absent${missing.length > 1 ? 's' : ''} de l'annonce. Tant que ${missing.length > 1 ? 'ces champs restent vides' : 'ce champ reste vide'}, le cash-flow est probablement optimiste.</p>
+    </section>` : ''}`;
+
+  document.getElementById('ficheBody').hidden = false;
+  document.getElementById('pageStatus').textContent = '';
+}
+
+async function saveField(group, field, raw){
+  const value = raw === '' ? null : (parseFloat(raw) || 0);
+  const body = { [group]: { [field]: value } };
+  if(group === 'project' && field === 'monthlyRent') body.project.rentEstimated = false;
+  const status = document.getElementById('pageStatus');
+  // Mémorise le champ où se trouve l'utilisateur (ex. après Tab) pour l'y remettre après le recalcul
+  const activeId = document.activeElement && document.activeElement.id;
+  status.textContent = 'Recalcul…';
+  try {
+    entry = await AxIA.patchListing(listingId, body);
+    render();
+    const el = activeId && document.getElementById(activeId);
+    if(el) el.focus({ preventScroll: true });
+  } catch(err) {
+    status.innerHTML = `<span class="neg">Impossible d'enregistrer : ${esc(err.message)}</span>`;
+  }
+}
+
+async function init(){
+  AxIA.renderNav('analyses');
+  if(!listingId){ document.getElementById('pageStatus').innerHTML = 'Aucune annonce sélectionnée. <a href="index.html">Retour aux analyses</a>'; return; }
+  try {
+    entry = await AxIA.getListing(listingId);
+    render();
+  } catch(err) {
+    document.getElementById('pageStatus').innerHTML = `${esc(err.message)}. <a href="index.html">Retour aux analyses</a>`;
+  }
+}
+init();
+</script>
+</body>
+</html>

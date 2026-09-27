@@ -111,7 +111,7 @@ export function computeComparaisonFiscale({ listing, project, financials, profil
     (financials.assuranceEmprunteurMensuelle || 0) * 12 +
     (project.gestionMensuelle || 0) * 12;
 
-  const capitalEmprunte = financials.totalProjet || 0;
+  const capitalEmprunte = financials.capitalEmprunte ?? financials.totalProjet ?? 0;
   const tauxCredit = project.tauxCredit || 0;
   const tmi = profilFiscal.tmi;
 

@@ -48,12 +48,16 @@ export function computeFullMetrics({ listing, sector, project }) {
     (project.gestionMensuelle || 0);
   const chargesTotalAnnuel = chargesTotalMensuel * 12;
 
+  // Apport personnel : réduit le capital emprunté (0 par défaut = financement à 100 %)
+  const apport = Math.max(0, Math.min(project.apport || 0, totalProjet));
+  const capitalEmprunte = totalProjet - apport;
+
   const tauxCredit = project.tauxCredit ?? TAUX_CREDIT_DEFAUT;
-  const creditMensuel = computeMensualite(totalProjet, tauxCredit);
+  const creditMensuel = computeMensualite(capitalEmprunte, tauxCredit);
 
   const tauxAssuranceEmprunteur = project.tauxAssuranceEmprunteur ?? TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT;
-  const assuranceEmprunteurMensuelle = totalProjet > 0
-    ? Math.round(totalProjet * (tauxAssuranceEmprunteur / 100) / 12)
+  const assuranceEmprunteurMensuelle = capitalEmprunte > 0
+    ? Math.round(capitalEmprunte * (tauxAssuranceEmprunteur / 100) / 12)
     : 0;
 
   const rentabiliteBrut = totalProjet > 0 ? +((loyerAnnuel / totalProjet) * 100).toFixed(2) : null;
@@ -74,6 +78,8 @@ export function computeFullMetrics({ listing, sector, project }) {
   return {
     prixM2,
     totalProjet,
+    apport,
+    capitalEmprunte,
     loyerAnnuel,
     chargesTotalMensuel,
     chargesTotalAnnuel,

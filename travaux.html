@@ -4,131 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AxIA — Chiffrage des travaux</title>
-<style>
-  :root{
-    --bg:#0b0c0e; --bg-elevated:#141618; --bg-soft:#1b1d20;
-    --ink:#f3f2ee; --ink-soft:#93938e;
-    --gold:#c9a24a; --gold-soft:rgba(201,162,74,0.14);
-    --market:#5b8fb0; --market-soft:rgba(91,143,176,0.16);
-    --green:#4caf74; --green-soft:rgba(76,175,116,0.14);
-    --red:#e0645a; --red-soft:rgba(224,100,90,0.14);
-    --line:rgba(255,255,255,0.09);
-    --radius:20px; --radius-sm:12px;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--bg); color:var(--ink);
-    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing:antialiased; line-height:1.5;
-  }
-  a{color:inherit; text-decoration:none;}
-
-  nav{
-    position:sticky; top:0; z-index:50;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:16px 32px; background:rgba(11,12,14,0.75);
-    backdrop-filter:saturate(180%) blur(20px); border-bottom:1px solid var(--line);
-  }
-  .logo{ font-size:19px; font-weight:700; letter-spacing:-0.01em; display:flex; align-items:center; gap:2px; }
-  .logo span{color:var(--gold);}
-  .back-link{ font-size:14px; color:var(--ink-soft); }
-  .back-link:hover{ color:var(--ink); }
-
-  .container{ max-width:1000px; margin:0 auto; padding:40px 24px 80px; }
-  h1{ font-size:32px; font-weight:700; letter-spacing:-0.02em; margin:0 0 6px; }
-  .subtitle{ color:var(--ink-soft); font-size:15px; margin:0 0 32px; }
-
-  .panel{
-    background:var(--bg-elevated); border:1px solid var(--line); border-radius:var(--radius);
-    padding:24px; margin-bottom:24px;
-  }
-  .panel h2{ font-size:18px; font-weight:700; margin:0 0 4px; }
-  .panel .hint{ color:var(--ink-soft); font-size:13px; margin:0 0 18px; }
-
-  .upload-zone{
-    border:2px dashed var(--line); border-radius:var(--radius-sm);
-    padding:32px; text-align:center; cursor:pointer; transition:border-color .15s ease;
-  }
-  .upload-zone:hover{ border-color:var(--gold); }
-  .upload-zone input{ display:none; }
-  .upload-zone .icon{ font-size:32px; margin-bottom:8px; }
-  .plan-preview{ max-width:100%; border-radius:var(--radius-sm); margin-top:16px; border:1px solid var(--line); }
-
-  .btn-primary{
-    background:var(--gold); color:#171410; border:none; border-radius:var(--radius-sm);
-    padding:11px 22px; font-size:14px; font-weight:700; cursor:pointer; transition:filter .15s ease;
-  }
-  .btn-primary:hover{ filter:brightness(1.1); }
-  .btn-primary:disabled{ opacity:0.5; cursor:not-allowed; }
-  .btn-secondary{
-    background:var(--bg-soft); color:var(--ink); border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer;
-  }
-  .btn-secondary:hover{ border-color:var(--gold); color:var(--gold); }
-
-  table.rooms-table{ width:100%; border-collapse:collapse; margin-top:16px; font-size:13.5px; }
-  table.rooms-table th, table.rooms-table td{ padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; }
-  table.rooms-table th{ color:var(--ink-soft); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; }
-  .cell-input{
-    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
-    padding:6px 8px; font-size:13px; color:var(--ink); font-family:inherit; width:80px;
-  }
-  .cell-input.wide{ width:130px; }
-  .cell-input:focus{ outline:none; border-color:var(--gold); }
-  select.trade-select{
-    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
-    padding:6px 6px; font-size:12.5px; color:var(--ink); font-family:inherit;
-  }
-  .remove-room{ background:transparent; border:none; color:var(--ink-soft); cursor:pointer; font-size:14px; }
-  .remove-room:hover{ color:var(--red); }
-
-  .forfait-row{
-    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-    padding:12px 0; border-bottom:1px solid var(--line);
-  }
-  .forfait-row:last-child{ border-bottom:none; }
-  .forfait-row .label{ min-width:160px; font-weight:600; font-size:14px; }
-  .forfait-row select, .forfait-row input{
-    background:var(--bg-soft); border:1px solid var(--line); border-radius:6px;
-    padding:7px 10px; font-size:13px; color:var(--ink); font-family:inherit;
-  }
-
-  .total-bar{
-    display:flex; justify-content:space-between; align-items:center;
-    background:var(--gold-soft); border:1px solid rgba(201,162,74,0.3); border-radius:var(--radius-sm);
-    padding:18px 24px; margin-top:8px;
-  }
-  .total-bar .label{ font-size:14px; color:var(--ink-soft); }
-  .total-bar .value{ font-size:28px; font-weight:700; color:var(--gold); }
-
-  .disclaimer{
-    font-size:12.5px; color:var(--ink-soft); background:var(--bg-soft);
-    border-radius:var(--radius-sm); padding:14px 16px; margin-top:16px; line-height:1.6;
-  }
-  .status-msg{ font-size:13.5px; margin-top:12px; padding:10px 14px; border-radius:var(--radius-sm); }
-  .status-msg.ok{ background:var(--green-soft); color:var(--green); }
-  .status-msg.err{ background:var(--red-soft); color:var(--red); }
-  .spinner{ display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.2); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
-  @keyframes spin{ to{ transform:rotate(360deg); } }
-</style>
+<link rel="stylesheet" href="style.css">
+<script src="common.js"></script>
 </head>
 <body>
 
-<nav>
-  <div class="logo">Ax<span>IA</span></div>
-  <a class="back-link" href="index.html">← Retour aux analyses</a>
-</nav>
+<div id="app-nav"></div>
 
 <div class="container">
-  <h1 id="pageTitle">Chiffrage des travaux</h1>
-  <p class="subtitle" id="pageSubtitle">Chargement de l'annonce...</p>
+  <div id="fiche-header"></div>
+  <p class="page-status" id="pageSubtitle" role="status" aria-live="polite">Chargement…</p>
 
   <div class="panel">
     <h2>1. Le plan du logement</h2>
     <p class="hint">Idéalement, un plan avec les surfaces déjà indiquées par pièce (et si possible le périmètre des murs + la hauteur sous plafond). AxIA lit ces chiffres — il ne mesure jamais lui-même sur l'image.</p>
     <div class="upload-zone" onclick="document.getElementById('planInput').click()">
-      <div class="icon">📐</div>
+      <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h18v18H3z"/><path d="M3 12h8v9M11 3v5M15 12h6"/></svg>
       <div>Cliquez pour choisir un plan (image ou PDF)</div>
       <input type="file" id="planInput" accept="image/*,application/pdf" onchange="handlePlanUpload(event)">
     </div>
@@ -154,7 +45,7 @@
     <p class="hint">Ces postes ne sont pas liés à une pièce du plan — cochez ce qui concerne votre projet.</p>
 
     <div class="forfait-row">
-      <span class="label">🍳 Cuisine complète</span>
+      <span class="label">Cuisine complète</span>
       <select id="cuisineNiveau" onchange="recalcule()">
         <option value="">Non concerné</option>
         <option value="basique">Basique (~4 000€ - ~2 500€)</option>
@@ -168,7 +59,7 @@
     </div>
 
     <div class="forfait-row">
-      <span class="label">🚿 Salle de bain complète</span>
+      <span class="label">Salle de bain complète</span>
       <select id="sdbNiveau" onchange="recalcule()">
         <option value="">Non concerné</option>
         <option value="basique">Basique (~5 000€ - ~2 800€)</option>
@@ -182,8 +73,8 @@
     </div>
 
     <div class="forfait-row">
-      <span class="label">🧱 Isolation</span>
-      <input type="number" id="isolationSurface" placeholder="Surface m²" onchange="recalcule()" style="width:100px;">
+      <span class="label">Isolation</span>
+      <input type="number" id="isolationSurface" placeholder="Surface m²" onchange="recalcule()" style="width:130px;">
       <select id="isolationMode" onchange="recalcule()">
         <option value="">Non concerné</option>
         <option value="artisan">Avec artisan</option>
@@ -192,8 +83,8 @@
     </div>
 
     <div class="forfait-row">
-      <span class="label">🏠 Toiture</span>
-      <input type="number" id="toitureSurface" placeholder="Surface m²" onchange="recalcule()" style="width:100px;">
+      <span class="label">Toiture</span>
+      <input type="number" id="toitureSurface" placeholder="Surface m²" onchange="recalcule()" style="width:130px;">
       <select id="toitureMode" onchange="recalcule()">
         <option value="">Non concerné</option>
         <option value="artisan">Avec artisan</option>
@@ -202,8 +93,8 @@
     </div>
 
     <div class="forfait-row">
-      <span class="label">🚧 Cloisons (ouverture/création)</span>
-      <input type="number" id="cloisonsSurface" placeholder="Surface m²" onchange="recalcule()" style="width:100px;">
+      <span class="label">Cloisons (ouverture/création)</span>
+      <input type="number" id="cloisonsSurface" placeholder="Surface m²" onchange="recalcule()" style="width:130px;">
       <select id="cloisonsMode" onchange="recalcule()">
         <option value="">Non concerné</option>
         <option value="artisan">Avec artisan</option>
@@ -212,8 +103,8 @@
     </div>
 
     <div class="forfait-row">
-      <span class="label">🪟 Menuiseries (fenêtres/portes)</span>
-      <input type="number" id="menuiseriesQte" placeholder="Quantité" onchange="recalcule()" style="width:90px;">
+      <span class="label">Menuiseries (fenêtres/portes)</span>
+      <input type="number" id="menuiseriesQte" placeholder="Quantité" onchange="recalcule()" style="width:130px;">
       <select id="menuiseriesMode" onchange="recalcule()">
         <option value="">Non concerné</option>
         <option value="artisan">Avec artisan</option>
@@ -229,7 +120,7 @@
       <span class="value" id="totalValue">0 €</span>
     </div>
     <div class="disclaimer">
-      ⚠️ Ces prix sont des <b>moyennes de marché indicatives</b> (sources FFB, CAPEB, comparatifs professionnels 2026), pas des devis réels. Le coût final dépend de votre région, de l'état du logement et des matériaux choisis. Faites toujours établir de vrais devis avant d'engager des travaux.
+      Ces prix sont des <b>moyennes de marché indicatives</b> (sources FFB, CAPEB, comparatifs professionnels 2026), pas des devis réels. Le coût final dépend de votre région, de l'état du logement et des matériaux choisis. Faites toujours établir de vrais devis avant d'engager des travaux.
     </div>
     <div style="margin-top:18px; display:flex; gap:12px; align-items:center;">
       <button class="btn-primary" onclick="saveTravaux()" id="saveBtn">Enregistrer ce chiffrage</button>
@@ -240,6 +131,7 @@
 </div>
 
 <script>
+AxIA.renderNav('analyses');
 const params = new URLSearchParams(window.location.search);
 const listingId = params.get('id');
 let rooms = [];
@@ -255,8 +147,8 @@ async function loadListing(){
     if(!response.ok) throw new Error("Analyse introuvable");
     listingData = await response.json();
 
-    document.getElementById('pageTitle').textContent = `Travaux — ${listingData.label}`;
-    document.getElementById('pageSubtitle').textContent = `${listingData.listing.ville || ''} • ${listingData.listing.surface || '?'} m²`;
+    AxIA.renderFicheHeader(AxIA.normalizeEntry(listingData), 'travaux');
+    document.getElementById('pageSubtitle').textContent = '';
     document.getElementById('chantierLink').href = `suivi-chantier.html?id=${listingId}`;
 
     const detail = listingData.project.travauxDetail;
