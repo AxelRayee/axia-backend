@@ -7,7 +7,7 @@ dotenv.config(); // DOIT être EN PREMIER
 import { extractListingFromUrl } from "./extractListing.js";
 import { getSectorStats } from "./dvf.js";
 import { estimateRent } from "./rent.js";
-import { getCommuneInfo } from "./geo.js";
+import { getCommuneInfo, geocodeListing } from "./geo.js";
 import { getCityImage } from "./cityImage.js";
 import { estimateTaxeFonciere } from "./taxeFonciere.js";
 import { estimateAssurancePNO } from "./assurance.js";
@@ -76,6 +76,11 @@ app.patch("/api/listings/:id", async (req, res) => {
     }
 
     const mergedListing = { ...entry.listing, ...(listingChanges || {}) };
+
+    // Ville ou quartier modifié : on recalcule la position sur la carte
+    if (listingChanges && ["ville", "quartier", "code_postal"].some((k) => k in listingChanges)) {
+      mergedListing.coords = await geocodeListing(mergedListing);
+    }
     const mergedProject = { ...entry.project, ...(projectChanges || {}) };
     mergedProject.sources = { ...(entry.project.sources || {}) };
 
@@ -222,6 +227,23 @@ app.patch("/api/listings/:id/chantier", async (req, res) => {
   }
 });
 
+// Complète la position des analyses qui n'en ont pas encore (créées avant la vue carte).
+// Chaque analyse n'est tentée qu'une fois (coordsTried) pour ne pas relancer le géocodage à chaque visite.
+app.post("/api/geocode-missing", async (req, res) => {
+  try {
+    const listings = await readListings();
+    const todo = listings.filter((l) => l.listing && !l.listing.coords && !l.listing.coordsTried).slice(0, 25);
+    for (const entry of todo) {
+      const coords = await geocodeListing(entry.listing);
+      await updateListing(entry.id, { listing: { ...entry.listing, coords, coordsTried: true } });
+    }
+    res.json({ listings: await readListings(), geocoded: todo.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Impossible de localiser les analyses.", details: err.message });
+  }
+});
+
 // Profil fiscal global (tranche d'imposition, hypothèses d'amortissement)
 app.get("/api/profil-fiscal", async (req, res) => {
   try {
@@ -283,6 +305,9 @@ app.post("/api/analyze", async (req, res) => {
 
     // Étape 3 : infos de la commune (code INSEE + population, pour DVF/loyer/taxe foncière)
     const commune = await getCommuneInfo(listing.ville, listing.code_postal);
+
+    // Position approximative (quartier ou centre de la commune) pour la vue carte
+    listing.coords = commune ? await geocodeListing(listing, commune) : null;
     const codeInsee = commune?.code || null;
 
     // Étape 4 : comparaison marché (DVF)

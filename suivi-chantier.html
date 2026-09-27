@@ -73,6 +73,7 @@
 
 <script>
 AxIA.renderNav('analyses');
+window.addEventListener('axia-theme', () => { if(chartInstance) renderChart(); });
 const params = new URLSearchParams(window.location.search);
 const listingId = params.get('id');
 let chantier = { lots: [], depenses: [], rad: {} };
@@ -243,21 +244,23 @@ function renderChart(){
 
   const ctx = document.getElementById('chart').getContext('2d');
   if(chartInstance) chartInstance.destroy();
+  // Couleurs lues dans le thème courant (sombre ou clair)
+  const gold = AxIA.cssVar('--gold'), red = AxIA.cssVar('--red'), ink = AxIA.cssVar('--ink'), soft = AxIA.cssVar('--ink-soft'), grid = AxIA.cssVar('--row-line');
   chartInstance = new Chart(ctx, {
     data: {
       labels: mois,
       datasets: [
-        { type: 'bar', label: 'Dépenses du mois', data: montantsMois, backgroundColor: 'rgba(201,162,74,0.5)' },
-        { type: 'line', label: 'Cumul dépenses', data: cumulatif, borderColor: '#c9a24a', tension: 0.2 },
-        { type: 'line', label: 'Budget total', data: mois.map(() => budgetTotal), borderColor: '#e0645a', borderDash: [6,6], pointRadius: 0 }
+        { type: 'bar', label: 'Dépenses du mois', data: montantsMois, backgroundColor: AxIA.cssVar('--gold-line') },
+        { type: 'line', label: 'Cumul dépenses', data: cumulatif, borderColor: gold, tension: 0.2 },
+        { type: 'line', label: 'Budget total', data: mois.map(() => budgetTotal), borderColor: red, borderDash: [6,6], pointRadius: 0 }
       ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { color: '#f3f2ee' } } },
+      plugins: { legend: { labels: { color: ink } } },
       scales: {
-        x: { ticks: { color: '#93938e' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-        y: { ticks: { color: '#93938e' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        x: { ticks: { color: soft }, grid: { color: grid } },
+        y: { ticks: { color: soft }, grid: { color: grid } }
       }
     }
   });

@@ -1,5 +1,14 @@
 // AxIA — fonctions partagées par toutes les pages (navigation, en-tête de fiche, formats).
 (function(){
+  // ---------- Thème (appliqué dès le chargement pour éviter un flash de couleur) ----------
+  const THEME_KEY = 'axia-theme';
+  function savedTheme(){
+    try { const t = localStorage.getItem(THEME_KEY); if(t === 'light' || t === 'dark') return t; } catch(e){}
+    return 'dark'; // identité AxIA par défaut
+  }
+  function theme(){ return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'; }
+  document.documentElement.dataset.theme = savedTheme();
+
   const ICONS = {
     link: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/>',
     external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
@@ -10,8 +19,28 @@
     back: '<path d="m15 18-6-6 6-6"/>',
     home: '<path d="M4 21V8l8-5 8 5v13"/><path d="M9 21v-6h6v6"/>',
     plan: '<path d="M3 3h18v18H3z"/><path d="M3 12h8v9M11 3v5M15 12h6"/>',
-    hardhat: '<path d="M4 17h16v2H4zM6 17v-3a6 6 0 0 1 12 0v3M10 8V5h4v3"/>'
+    hardhat: '<path d="M4 17h16v2H4zM6 17v-3a6 6 0 0 1 12 0v3M10 8V5h4v3"/>',
+    map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
   };
+
+  function toggleTheme(){
+    const next = theme() === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+    document.documentElement.dataset.theme = next;
+    const btn = document.getElementById('themeBtn');
+    if(btn) paintThemeBtn(btn);
+    window.dispatchEvent(new CustomEvent('axia-theme', { detail: next }));
+  }
+  function paintThemeBtn(btn){
+    const light = theme() === 'light';
+    btn.innerHTML = icon(light ? 'moon' : 'sun');
+    btn.setAttribute('aria-label', light ? 'Passer au thème sombre' : 'Passer au thème clair');
+    btn.title = btn.getAttribute('aria-label');
+  }
+  // Lit une couleur du thème courant (pour les graphiques et la carte)
+  function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
   function icon(name, cls){
     return `<svg class="${cls || 'icon'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -51,7 +80,7 @@
     const w = large ? 3 : 3.5;
     return `<div class="score${large ? ' lg' : ''}" role="img" aria-label="Score AxIA ${s} sur 100">
       <svg viewBox="0 0 44 44" aria-hidden="true">
-        <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="${w}"/>
+        <circle cx="22" cy="22" r="18" fill="none" stroke="var(--ring-track)" stroke-width="${w}"/>
         <circle cx="22" cy="22" r="18" fill="none" stroke="${scoreColor(s)}" stroke-width="${w}" stroke-dasharray="113.1" stroke-dashoffset="${offset}" stroke-linecap="round" transform="rotate(-90 22 22)"/>
       </svg><span aria-hidden="true">${s}</span></div>`;
   }
@@ -127,8 +156,14 @@
           <a href="reglages.html" class="${active === 'reglages' ? 'active' : ''}" ${active === 'reglages' ? 'aria-current="page"' : ''}>Réglages</a>
         </div>
       </div>
-      <a class="nav-chip" href="reglages.html" id="navFiscalChip"><span class="dot"></span><span>Profil fiscal</span></a>
+      <div class="nav-right">
+        <a class="nav-chip" href="reglages.html" id="navFiscalChip"><span class="dot"></span><span>Profil fiscal</span></a>
+        <button type="button" class="theme-btn" id="themeBtn"></button>
+      </div>
     </nav>`;
+    const btn = document.getElementById('themeBtn');
+    paintThemeBtn(btn);
+    btn.addEventListener('click', toggleTheme);
     try {
       const r = await fetch('/api/profil-fiscal');
       if(r.ok){
@@ -199,5 +234,5 @@
     return normalizeEntry(await r.json());
   }
 
-  window.AxIA = { icon, esc, currency, signed, pct, signedPct, scoreColor, scoreBg, ring, marketBlock, normalizeEntry, missingCount, title, renderNav, renderFicheHeader, getListing, patchListing };
+  window.AxIA = { theme, toggleTheme, cssVar, icon, esc, currency, signed, pct, signedPct, scoreColor, scoreBg, ring, marketBlock, normalizeEntry, missingCount, title, renderNav, renderFicheHeader, getListing, patchListing };
 })();

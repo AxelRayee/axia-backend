@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AxIA — Vos analyses</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="common.js"></script>
 </head>
 <body>
@@ -61,6 +63,7 @@
       <div class="segmented" role="group" aria-label="Affichage">
         <button type="button" id="btnViewCards" aria-pressed="true" onclick="setView('cards')"></button>
         <button type="button" id="btnViewTable" aria-pressed="false" onclick="setView('table')"></button>
+        <button type="button" id="btnViewMap" aria-pressed="false" onclick="setView('map')"></button>
       </div>
       <button type="button" class="btn-ghost" onclick="exportExcel()" id="exportBtn"></button>
     </div>
@@ -76,6 +79,10 @@
     </div>
     <div class="table-wrap" id="tableWrap"></div>
   </div>
+  <div class="map-wrap" id="mapBlock" hidden>
+    <div id="mapView" role="region" aria-label="Carte des biens analysés"></div>
+    <p class="map-note" id="mapNote"></p>
+  </div>
 </main>
 
 <footer class="app-footer">AxIA — ventes DVF (Cerema, data.gouv.fr), loyers ANIL (Carte des loyers), taux de crédit indicatif (moyenne nationale 25 ans). Estimations indicatives, à vérifier avant toute décision.</footer>
@@ -88,14 +95,17 @@ let lastDisplayed = [];
 
 document.getElementById('btnViewCards').innerHTML = icon('grid') + 'Cartes';
 document.getElementById('btnViewTable').innerHTML = icon('list') + 'Tableau';
+document.getElementById('btnViewMap').innerHTML = icon('map') + 'Carte';
 document.getElementById('exportBtn').innerHTML = icon('download') + 'Exporter Excel';
 
 function setView(view){
   currentView = view;
   document.getElementById('btnViewCards').setAttribute('aria-pressed', view === 'cards');
   document.getElementById('btnViewTable').setAttribute('aria-pressed', view === 'table');
+  document.getElementById('btnViewMap').setAttribute('aria-pressed', view === 'map');
   document.getElementById('cardGrid').hidden = view !== 'cards';
   document.getElementById('tableBlock').hidden = view !== 'table';
+  document.getElementById('mapBlock').hidden = view !== 'map';
   applyFilters();
 }
 
@@ -251,6 +261,87 @@ function renderTable(list){
   wrap.innerHTML = `<table class="data-table">${head}<tbody>${rows}</tbody>${foot}</table>`;
 }
 
+/* ===== Vue carte ===== */
+let map = null, markersLayer = null, tileLayer = null, geocodeRequested = false;
+const TILES = {
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+};
+function setTiles(){
+  if(!map) return;
+  if(tileLayer) map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(TILES[AxIA.theme()], {
+    maxZoom: 19, subdomains: 'abcd',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }).addTo(map);
+}
+window.addEventListener('axia-theme', setTiles);
+
+function popupHtml(l){
+  const f = l.financials, lst = l.listing;
+  const ecClass = f.ecartMarche === null || f.ecartMarche === undefined ? '' : (f.ecartMarche <= 0 ? 'pos' : 'neg');
+  const prec = lst.coords && lst.coords.precision === 'quartier' ? 'Position du quartier (approximative)' : 'Position : centre de la commune';
+  return `<div class="pop-price">${currency(lst.prix)}</div>
+    <div class="pop-city">${esc(AxIA.title(l))}${lst.surface ? ' · ' + lst.surface + ' m²' : ''}</div>
+    <div class="pop-grid">
+      <div><div class="metric-label">Net</div><div class="metric-value">${pct(f.rentabiliteNette)}</div></div>
+      <div><div class="metric-label">Cash-flow</div><div class="metric-value ${f.cashFlowMensuel >= 0 ? 'pos' : 'neg'}">${signed(f.cashFlowMensuel)}</div></div>
+      <div><div class="metric-label">Vs marché</div><div class="metric-value ${ecClass}">${signedPct(f.ecartMarche)}</div></div>
+    </div>
+    <a class="btn btn-outline-gold" style="width:100%;height:40px" href="fiche.html?id=${encodeURIComponent(l.id)}">Ouvrir la fiche</a>
+    <div class="pop-precision">${prec}</div>`;
+}
+
+async function renderMap(list){
+  const note = document.getElementById('mapNote');
+  if(typeof L === 'undefined'){ note.textContent = "La carte n'a pas pu se charger (bibliothèque Leaflet injoignable). Rechargez la page."; return; }
+  if(!map){
+    map = L.map('mapView', { scrollWheelZoom: true }).setView([46.6, 2.4], 6);
+    setTiles();
+    markersLayer = L.layerGroup().addTo(map);
+  }
+  // Les analyses créées avant la vue carte n'ont pas de position : on les localise une fois
+  if(!geocodeRequested && listings.some(l => !l.listing.coords && !l.listing.coordsTried)){
+    geocodeRequested = true;
+    note.innerHTML = '<span class="spinner"></span>Localisation des biens déjà analysés…';
+    try {
+      const r = await fetch('/api/geocode-missing', { method: 'POST' });
+      const d = await r.json();
+      if(r.ok){ listings = (d.listings || []).map(normalizeEntry).filter(Boolean); applyFilters(); return; }
+    } catch(e){ /* on affiche ce qu'on a */ }
+  }
+
+  markersLayer.clearLayers();
+  // Plusieurs biens dans la même commune : on les écarte légèrement en spirale pour qu'ils restent cliquables
+  const seen = {};
+  const pts = list.filter(l => l.listing.coords && isFinite(l.listing.coords.lat)).map(l => {
+    const c = l.listing.coords;
+    const key = c.lat.toFixed(4) + ',' + c.lon.toFixed(4);
+    const k = seen[key] = (seen[key] || 0) + 1;
+    const r = (k - 1) ? 0.0022 * Math.sqrt(k - 1) : 0, a = (k - 1) * 2.4;
+    return { l, lat: c.lat + r * Math.sin(a), lon: c.lon + r * Math.cos(a) };
+  });
+  pts.forEach(({ l, lat, lon }) => {
+    const s = l.financials.score;
+    const marker = L.marker([lat, lon], {
+      icon: L.divIcon({ className: '', html: `<div class="map-pin" style="background:${scoreColor(s)}">${s}</div>`, iconSize: [40, 40], iconAnchor: [20, 20], popupAnchor: [0, -18] }),
+      title: `${AxIA.title(l)} · score ${s}`, alt: `${AxIA.title(l)}, score ${s}`, riseOnHover: true
+    });
+    marker.bindPopup(popupHtml(l));
+    markersLayer.addLayer(marker);
+  });
+
+  setTimeout(() => {
+    map.invalidateSize();
+    if(pts.length) map.fitBounds(L.latLngBounds(pts.map(p => [p.lat, p.lon])).pad(0.35), { maxZoom: 13 });
+  }, 50);
+
+  const sans = list.length - pts.length;
+  note.textContent = `${pts.length} bien${pts.length > 1 ? 's' : ''} sur la carte`
+    + (sans ? ` · ${sans} sans position (ville non reconnue)` : '')
+    + ' · Position approximative : quartier quand il est reconnu, sinon centre de la commune (les annonces donnent rarement l\'adresse).';
+}
+
 function render(list){
   lastDisplayed = list;
   document.getElementById('countLabel').textContent = listings.length ? `${list.length} sur ${listings.length}` : '';
@@ -259,6 +350,7 @@ function render(list){
     : 'Comparées aux ventes DVF et aux loyers ANIL';
   renderKpis(list);
   if(currentView === 'cards') renderCards(list);
+  else if(currentView === 'map') renderMap(list);
   else renderTable(list);
 }
 
