@@ -435,6 +435,8 @@ canvas{ max-height:300px; }
 /* ---------- Vue carte ---------- */
 .map-wrap{ position:relative; z-index:0; isolation:isolate; border:1px solid var(--line); border-radius:18px; overflow:hidden; background:var(--bg-elevated); box-shadow:var(--shadow); }
 #mapView{ height:68vh; min-height:420px; background:var(--bg-soft); }
+/* Thème sombre : le fond de carte clair est inversé et adouci */
+[data-theme="dark"] #mapView .leaflet-tile-pane{ filter:invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.55); }
 .map-note{ font-size:13px; color:var(--ink-mute); padding:12px 16px; border-top:1px solid var(--line); }
 .map-pin{ display:flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; font:700 14px var(--font-body); color:var(--pin-ink); border:3px solid var(--bg-elevated); box-shadow:0 2px 8px rgba(0,0,0,0.35); }
 .leaflet-container{ font-family:var(--font-body); }

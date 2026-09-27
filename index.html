@@ -263,19 +263,26 @@ function renderTable(list){
 
 /* ===== Vue carte ===== */
 let map = null, markersLayer = null, tileLayer = null, geocodeRequested = false;
-const TILES = {
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-};
+// Fond de carte : Plan IGN (Géoplateforme, gratuit et sans clé), OpenStreetMap en secours.
+// En thème sombre, le même fond est assombri par un filtre CSS (voir style.css).
+const TILE_SOURCES = [
+  { url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    options: { maxZoom: 19, attribution: '&copy; <a href="https://www.ign.fr/">IGN</a> – Plan IGN' } },
+  { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' } }
+];
+let tileSourceIndex = 0;
 function setTiles(){
   if(!map) return;
   if(tileLayer) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(TILES[AxIA.theme()], {
-    maxZoom: 19, subdomains: 'abcd',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-  }).addTo(map);
+  const src = TILE_SOURCES[tileSourceIndex];
+  let errors = 0;
+  tileLayer = L.tileLayer(src.url, src.options).addTo(map);
+  tileLayer.on('tileerror', () => {
+    errors++;
+    if(errors === 4 && tileSourceIndex < TILE_SOURCES.length - 1){ tileSourceIndex++; setTiles(); }
+  });
 }
-window.addEventListener('axia-theme', setTiles);
 
 function popupHtml(l){
   const f = l.financials, lst = l.listing;
