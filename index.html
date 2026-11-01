@@ -23,6 +23,22 @@
     </div>
   </div>
 
+  <section class="searches" aria-labelledby="searchesTitle">
+    <div class="searches-head">
+      <h2 id="searchesTitle">Mes recherches</h2>
+      <button type="button" class="btn-ghost" id="addSearchBtn" style="height:36px" onclick="toggleSearchForm()" aria-expanded="false" aria-controls="searchForm"></button>
+    </div>
+    <div id="searchList"></div>
+    <form class="search-form" id="searchForm" hidden onsubmit="event.preventDefault(); addSearch();">
+      <div><label for="searchSite">Site</label><select id="searchSite"></select></div>
+      <div><label for="searchLabel">Nom</label><input id="searchLabel" type="text" maxlength="80" placeholder="Ex. T2 Bordeaux < 180 k€"></div>
+      <div><label for="searchUrl">Lien de la recherche</label><input id="searchUrl" type="url" required placeholder="https://www.leboncoin.fr/recherche?…" oninput="detectSite()"></div>
+      <button type="submit" class="btn-primary">Enregistrer</button>
+      <button type="button" class="btn-ghost" onclick="toggleSearchForm(false)">Annuler</button>
+    </form>
+    <div id="searchMsg" role="status" aria-live="polite"></div>
+  </section>
+
   <div>
     <form class="analyze-bar" onsubmit="event.preventDefault(); analyzeUrl();">
       <label for="urlInput" class="sr-only">Lien ou texte de l'annonce</label>
@@ -116,12 +132,14 @@ function renderKpis(list){
   el.hidden = false;
   const withNet = list.filter(l => l.financials.rentabiliteNette !== null && l.financials.rentabiliteNette !== undefined);
   const avgNet = withNet.length ? withNet.reduce((a, l) => a + l.financials.rentabiliteNette, 0) / withNet.length : null;
-  const cf = list.reduce((a, l) => a + (l.financials.cashFlowMensuel || 0), 0);
+  // Biens autofinancés : le loyer couvre charges + crédit + assurance (cash-flow ≥ 0)
+  const auto = list.filter(l => (l.financials.cashFlowMensuel ?? -1) >= 0);
+  const bestCf = [...list].sort((a, b) => (b.financials.cashFlowMensuel ?? -Infinity) - (a.financials.cashFlowMensuel ?? -Infinity))[0];
   const best = [...list].sort((a, b) => (b.financials.score || 0) - (a.financials.score || 0))[0];
   const missing = list.reduce((a, l) => a + missingCount(l), 0);
   el.innerHTML = `
     <div class="kpi"><div class="kpi-label">Rendement net moyen</div><div class="kpi-value">${pct(avgNet)}</div></div>
-    <div class="kpi"><div class="kpi-label">Cash-flow cumulé</div><div class="kpi-value ${cf >= 0 ? 'pos' : 'neg'}">${signed(cf)}<span class="kpi-unit"> /mois</span></div></div>
+    <div class="kpi"><div class="kpi-label">Autofinancés · cash-flow ≥ 0</div><div class="kpi-value ${auto.length ? 'pos' : ''}">${auto.length}<span class="kpi-unit"> sur ${list.length}${bestCf ? ' · meilleur ' + signed(bestCf.financials.cashFlowMensuel) + '/mois' : ''}</span></div></div>
     <div class="kpi"><div class="kpi-label">Meilleur score</div><div class="kpi-value">${best ? best.financials.score : '—'}<span class="kpi-unit">${best ? ' · ' + esc(best.listing.ville || '') : ''}</span></div></div>
     <div class="kpi ${missing ? 'alert' : ''}"><div class="kpi-label">À compléter</div><div class="kpi-value ${missing ? 'neg' : ''}">${missing}<span class="kpi-unit"> champ${missing > 1 ? 's' : ''} manquant${missing > 1 ? 's' : ''}</span></div></div>`;
 }
@@ -136,8 +154,10 @@ function renderCards(list){
   grid.innerHTML = list.map(l => {
     const f = l.financials, lst = l.listing, id = esc(l.id);
     const photo = lst.imageUrl ? ` has-img" style="background-image:url('${esc(lst.imageUrl)}')` : '';
+    const suivi = AxIA.suiviStatus(l);
     const badges = [lst.surface ? `${lst.surface} m²` : null, lst.dpe ? `DPE ${lst.dpe}` : null, lst.imageIsCity ? 'Photo de la ville' : null]
-      .filter(Boolean).map(b => `<span class="badge">${esc(b)}</span>`).join('');
+      .filter(Boolean).map(b => `<span class="badge">${esc(b)}</span>`).join('')
+      + (suivi ? `<span class="badge badge-suivi ${suivi.kind}">${esc(suivi.short)}</span>` : '');
     const net = f.rentabiliteNette !== null && f.rentabiliteNette !== undefined ? pct(f.rentabiliteNette) : '—';
     const ecClass = f.ecartMarche === null || f.ecartMarche === undefined ? '' : (f.ecartMarche <= 0 ? 'pos' : 'neg');
     return `
@@ -173,14 +193,15 @@ function renderCards(list){
 /* ===== Vue tableau ===== */
 function numCell(l, field, opts){
   opts = opts || {};
-  const v = l.project[field];
+  const v = 'value' in opts ? opts.value : l.project[field];
   const cls = opts.missing ? ' cell-missing' : '';
-  return `<input type="number" class="table-input${cls}" style="width:${opts.width || '84px'}" value="${v ?? ''}" step="${opts.step || 1}" aria-label="${esc(opts.label || field)}" onchange="updateField('${esc(l.id)}','project','${field}',this.value,true)">`;
+  const ph = opts.placeholder ? ` placeholder="${esc(opts.placeholder)}" title="${esc(opts.title || '')}"` : '';
+  return `<input type="number" class="table-input${cls}" style="width:${opts.width || '84px'}" value="${v ?? ''}"${ph} step="${opts.step || 1}" aria-label="${esc(opts.label || field)}" onchange="updateField('${esc(l.id)}','project','${field}',this.value,true)">`;
 }
-function textCell(l, group, field, width, missing){
+function textCell(l, group, field, width, missing, placeholder){
   const v = group === 'root' ? l[field] : l.listing[field];
   const cls = missing ? ' cell-missing' : '';
-  return `<input type="text" class="table-input text${cls}" style="width:${width || '140px'}" value="${esc(v ?? '')}" aria-label="${esc(field)}" onchange="updateField('${esc(l.id)}','${group}','${field}',this.value,false)">`;
+  return `<input type="text" class="table-input text${cls}" style="width:${width || '140px'}" value="${esc(v ?? '')}"${placeholder ? ` placeholder="${esc(placeholder)}"` : ''} aria-label="${esc(field)}" onchange="updateField('${esc(l.id)}','${group}','${field}',this.value,false)">`;
 }
 function srcMark(source){
   if(source === 'estimation') return '<span class="est" title="Estimation automatique">≈</span>';
@@ -194,9 +215,9 @@ function renderTable(list){
   const c = (label, cls) => `<th scope="col" class="${cls || ''}">${label}</th>`;
   const head = `
     <thead>
-      <tr class="grp">${g('Bien', 7)}${g('Achat', 6, 'gsep')}${g('Loyer', 2, 'gsep')}${g('Charges', 5, 'gsep')}${g('Crédit · 25 ans', 5, 'gsep')}${g('Résultats', 4, 'gsep res')}<th class="res"><span class="sr-only">Actions</span></th></tr>
+      <tr class="grp"><th scope="colgroup" class="sticky-col">Bien</th><th colspan="7" scope="colgroup"></th>${g('Achat', 6, 'gsep')}${g('Loyer', 2, 'gsep')}${g('Charges', 5, 'gsep')}${g('Crédit · 25 ans', 5, 'gsep')}${g('Résultats', 4, 'gsep res')}<th class="res"><span class="sr-only">Actions</span></th></tr>
       <tr class="cols">
-        ${c('Bien', 'sticky-col')}${c('Contact / agence')}${c('Lien')}${c('Ville')}${c('Quartier')}${c('m²', 'num')}${c('DPE', 'ctr')}
+        ${c('Bien', 'sticky-col')}${c('Contact / agence')}${c('Suivi')}${c('Lien')}${c('Ville')}${c('Quartier')}${c('m²', 'num')}${c('DPE', 'ctr')}
         ${c('Prix FAI', 'num gsep')}${c('Prix/m²', 'num')}${c('Vs marché', 'num')}${c('Travaux', 'num')}${c('Notaire', 'num')}${c('Total projet', 'num')}
         ${c('/mois', 'num gsep')}${c('/an', 'num')}
         ${c('Taxe fonc./an', 'num gsep')}${c('Copro/mois', 'num')}${c('PNO/mois', 'num')}${c('Gestion/mois', 'num')}${c('Total/mois', 'num')}
@@ -209,8 +230,9 @@ function renderTable(list){
     const f = l.financials, p = l.project, lst = l.listing, src = p.sources || {};
     const ecClass = f.ecartMarche === null || f.ecartMarche === undefined ? '' : (f.ecartMarche <= 0 ? 'pos' : 'neg');
     return `<tr>
-      <td class="sticky-col">${textCell(l, 'root', 'label', '170px')}</td>
+      <td class="sticky-col">${textCell(l, 'root', 'label', '170px', false, [l.listing.ville, l.listing.quartier].filter(Boolean).join(' — ') || 'Nommer ce bien')}</td>
       <td>${textCell(l, 'listing', 'contact', '150px', !lst.contact)}</td>
+      <td>${(() => { const s = AxIA.suiviStatus(l); return s ? `<span class="suivi-tag ${s.kind}">${esc(s.text)}</span>` : '<span style="color:var(--ink-mute)">—</span>'; })()}</td>
       <td>${lst.url ? `<a href="${esc(lst.url)}" target="_blank" rel="noopener">Voir</a>` : '—'}</td>
       <td>${esc(lst.ville || '—')}</td>
       <td>${textCell(l, 'listing', 'quartier', '120px', !lst.quartier)}</td>
@@ -229,7 +251,7 @@ function renderTable(list){
       <td class="num">${numCell(l, 'assurancePNO', { width: '60px', missing: src.assurancePNO === 'manquant', label: 'Assurance PNO' })}${srcMark(src.assurancePNO)}</td>
       <td class="num">${numCell(l, 'gestionMensuelle', { width: '60px', label: 'Gestion' })}</td>
       <td class="num" style="font-weight:600">${currency(f.chargesTotalMensuel)}</td>
-      <td class="num gsep">${numCell(l, 'apport', { width: '84px', step: 1000, label: 'Apport' })}</td>
+      <td class="num gsep">${numCell(l, 'apport', { width: '84px', step: 1000, label: 'Apport', value: f.apportAuto ? '' : p.apport, placeholder: f.apportAuto ? String(f.apport) : '', title: f.apportAuto ? `Apport par défaut (${f.apportPct} %) — saisissez un montant pour le remplacer` : '' })}${f.apportAuto ? '<span class="est" title="Apport par défaut">≈</span>' : ''}</td>
       <td class="num">${numCell(l, 'tauxCredit', { width: '56px', step: 0.05, label: 'Taux du crédit' })}</td>
       <td class="num">${currency(f.creditMensuel)}</td>
       <td class="num">${numCell(l, 'tauxAssuranceEmprunteur', { width: '56px', step: 0.01, label: 'Taux assurance emprunteur' })}</td>
@@ -247,13 +269,13 @@ function renderTable(list){
 
   const n = list.length || 1;
   const avg = arr => arr.reduce((a, b) => a + (b || 0), 0) / n;
-  const totalCf = list.reduce((a, l) => a + (l.financials.cashFlowMensuel || 0), 0);
+  const avgCf = avg(list.map(l => l.financials.cashFlowMensuel));
   const foot = list.length ? `<tfoot><tr>
-      <td class="sticky-col" style="color:var(--ink-soft);font-weight:600">Moyennes · total cash-flow</td>
-      <td colspan="24"></td>
+      <td class="sticky-col" style="color:var(--ink-soft);font-weight:600">Moyennes</td>
+      <td colspan="25"></td>
       <td class="num gsep">${pct(avg(list.map(l => l.financials.rentabiliteBrut)), 2)}</td>
       <td class="num">${pct(avg(list.map(l => l.financials.rentabiliteNette)), 2)}</td>
-      <td class="num ${totalCf >= 0 ? 'pos' : 'neg'}">${signed(totalCf)}</td>
+      <td class="num ${avgCf >= 0 ? 'pos' : 'neg'}">${signed(avgCf)}</td>
       <td class="ctr">${Math.round(avg(list.map(l => l.financials.score)))}</td>
       <td></td>
     </tr></tfoot>` : '';
@@ -475,6 +497,11 @@ function exportExcel(){
   const rows = lastDisplayed.map(l => ({
     "ID": l.label,
     "Contact / Agence": l.listing.contact || '',
+    "Agent": l.listing.agent_nom || '',
+    "Téléphone": l.listing.telephone || '',
+    "E-mail": l.listing.email || '',
+    "Contacté": l.project.suivi?.contacte ? (l.project.suivi.contacteLe || 'oui') : '',
+    "Visité": l.project.suivi?.visite ? (l.project.suivi.visiteLe || 'oui') : '',
     "Lien": l.listing.url || '',
     "Ville": l.listing.ville || '',
     "Quartier": l.listing.quartier || '',
@@ -495,7 +522,7 @@ function exportExcel(){
     "Gestion mensuelle": l.project.gestionMensuelle || 0,
     "Charges total mensuel": l.financials.chargesTotalMensuel || 0,
     "Charges total annuel": l.financials.chargesTotalAnnuel || 0,
-    "Apport": l.project.apport || 0,
+    "Apport": l.financials.apport || 0,
     "Capital emprunté": l.financials.capitalEmprunte || 0,
     "Taux crédit %": l.project.tauxCredit || 0,
     "Crédit mensuel": l.financials.creditMensuel || 0,
@@ -512,7 +539,105 @@ function exportExcel(){
   XLSX.writeFile(wb, `AxIA_analyses_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
+/* ===== Mes recherches ===== */
+const SITES = [
+  { name: 'LeBonCoin', host: /leboncoin\./i, color: '#ec5a13' },
+  { name: 'SeLoger', host: /seloger\./i, color: '#e2001a' },
+  { name: 'PAP', host: /(^|\.)pap\.fr/i, color: '#1a73b8' },
+  { name: "Bien'ici", host: /bienici\./i, color: '#ffb400' },
+  { name: 'Logic-Immo', host: /logic-immo\./i, color: '#004b93' },
+  { name: 'Ouest-France Immo', host: /ouestfrance-immo\./i, color: '#d6001c' },
+  { name: 'Notaires', host: /notaires\.fr/i, color: '#0f3b6f' },
+  { name: 'Autre', host: null, color: '#8f8f8a' }
+];
+let recherches = [];
+document.getElementById('addSearchBtn').innerHTML = '+ Ajouter une recherche';
+document.getElementById('searchSite').innerHTML = SITES.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
+
+function siteFromUrl(url){
+  try { const h = new URL(url).hostname; const s = SITES.find(x => x.host && x.host.test(h)); return s ? s.name : 'Autre'; }
+  catch(e){ return null; }
+}
+function detectSite(){
+  const site = siteFromUrl(document.getElementById('searchUrl').value.trim());
+  if(site) document.getElementById('searchSite').value = site;
+}
+function toggleSearchForm(force){
+  const form = document.getElementById('searchForm');
+  const open = typeof force === 'boolean' ? force : form.hidden;
+  form.hidden = !open;
+  document.getElementById('addSearchBtn').setAttribute('aria-expanded', open);
+  if(open) document.getElementById('searchUrl').focus();
+}
+
+function renderSearches(){
+  const el = document.getElementById('searchList');
+  if(!recherches.length){
+    el.innerHTML = '<p class="searches-empty">Enregistrez vos recherches LeBonCoin, SeLoger, PAP… pour les rouvrir en un clic, avec vos critères déjà réglés.</p>';
+    return;
+  }
+  el.innerHTML = SITES.map(site => {
+    const items = recherches.filter(r => (r.site || 'Autre') === site.name);
+    if(!items.length) return '';
+    return `<div class="site-row">
+      <div class="site-name"><span class="site-dot" style="background:${site.color}"></span>${esc(site.name)}</div>
+      <div class="search-chips">${items.map(r => `<span class="search-chip">
+        <a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.label)}${icon('external')}</a>
+        <button type="button" aria-label="Supprimer la recherche ${esc(r.label)}" onclick="removeSearch('${esc(r.id)}')">${icon('trash')}</button>
+      </span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadSearches(){
+  try {
+    const r = await fetch('/api/recherches');
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.details || d.error);
+    recherches = d.recherches || [];
+    renderSearches();
+  } catch(err) {
+    document.getElementById('searchList').innerHTML = `<p class="searches-empty neg">Impossible de charger vos recherches : ${esc(err.message)}</p>`;
+  }
+}
+
+async function addSearch(){
+  const url = document.getElementById('searchUrl').value.trim();
+  const msg = document.getElementById('searchMsg');
+  if(!/^https?:\/\//i.test(url)){ msg.innerHTML = '<div class="error-msg">Collez le lien complet de la recherche (il commence par https://).</div>'; return; }
+  const site = document.getElementById('searchSite').value;
+  const label = document.getElementById('searchLabel').value.trim() || `Recherche ${recherches.filter(r => r.site === site).length + 1}`;
+  try {
+    const r = await fetch('/api/recherches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site, label, url }) });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.details || d.error);
+    recherches = d.recherches || [];
+    renderSearches();
+    document.getElementById('searchUrl').value = '';
+    document.getElementById('searchLabel').value = '';
+    msg.innerHTML = '';
+    toggleSearchForm(false);
+  } catch(err) {
+    msg.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+  }
+}
+
+async function removeSearch(id){
+  const r0 = recherches.find(r => r.id === id);
+  if(!confirm(`Supprimer la recherche « ${r0 ? r0.label : ''} » ?`)) return;
+  try {
+    const r = await fetch(`/api/recherches/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.details || d.error);
+    recherches = d.recherches || [];
+    renderSearches();
+  } catch(err) {
+    document.getElementById('searchMsg').innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+  }
+}
+
 AxIA.renderNav('analyses');
+loadSearches();
 loadListings();
 </script>
 </body>

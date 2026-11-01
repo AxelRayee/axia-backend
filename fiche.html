@@ -21,7 +21,7 @@
   </div>
 </main>
 
-<footer class="app-footer">Les champs soulignés en pointillé sont modifiables : chaque changement recalcule la rentabilité, le cash-flow et le score.</footer>
+<footer class="app-footer">Les champs soulignés en pointillé sont modifiables : chaque changement recalcule la rentabilité, le cash-flow et le score. Apport : videz le champ pour revenir au pourcentage par défaut (Réglages).</footer>
 
 <script>
 const { icon, esc, currency, signed, pct, marketBlock } = AxIA;
@@ -44,7 +44,7 @@ function inputRow(label, group, field, value, opts){
   const missing = opts.src === 'miss';
   return `<div class="frow">
     <div class="frow-label"><label for="f_${field}">${label}</label>${badge(opts.src, opts.srcExtra)}</div>
-    <input id="f_${field}" type="number" class="frow-input${missing ? ' missing' : ''}" value="${value ?? ''}" step="${opts.step || 1}" placeholder="—"
+    <input id="f_${field}" type="number" class="frow-input${missing ? ' missing' : ''}" value="${value ?? ''}" step="${opts.step || 1}" placeholder="${opts.placeholder ?? '—'}"${opts.title ? ` title="${esc(opts.title)}"` : ''}
       onchange="saveField('${group}','${field}',this.value)">
     <span class="frow-unit">${opts.unit || '€'}</span>
   </div>`;
@@ -90,14 +90,16 @@ function render(){
       calcRow('Total charges', currency(f.chargesTotalMensuel), { total: true, unit: '/mois' })
     ) +
     group('Financement · 25 ans',
-      inputRow('Apport', 'project', 'apport', p.apport, { step: 1000 }) +
+      (f.apportAuto
+        ? inputRow('Apport', 'project', 'apport', '', { src: 'est', srcExtra: `${f.apportPct} % par défaut`, placeholder: Math.round(f.apport || 0), step: 1000, title: `Par défaut : ${f.apportPct} % du coût total. Saisissez un montant pour le fixer sur ce bien.` })
+        : inputRow('Apport', 'project', 'apport', p.apport, { src: 'you', step: 1000, title: 'Videz le champ pour revenir au pourcentage par défaut.' })) +
       calcRow('Capital emprunté', currency(f.capitalEmprunte ?? f.totalProjet)) +
       inputRow('Taux du crédit', 'project', 'tauxCredit', p.tauxCredit, { unit: '%', step: 0.05 }) +
       calcRow('Mensualité', currency(f.creditMensuel), { unit: '/mois' }) +
       inputRow('Taux assurance emprunteur', 'project', 'tauxAssuranceEmprunteur', p.tauxAssuranceEmprunteur, { unit: '%', step: 0.01 }) +
       calcRow('Assurance emprunteur', currency(f.assuranceEmprunteurMensuelle), { unit: '/mois' }) +
       calcRow('Total crédit', currency((f.creditMensuel || 0) + (f.assuranceEmprunteurMensuelle || 0)), { total: true, unit: '/mois' })
-    );
+    ) + commCard(l, p);
 
   // Colonne de droite
   const missing = [];
@@ -127,6 +129,87 @@ function render(){
 
   document.getElementById('ficheBody').hidden = false;
   document.getElementById('pageStatus').textContent = '';
+}
+
+// ---------- Communication ----------
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+function commField(label, field, value, opts){
+  opts = opts || {};
+  const v = (value || '').toString();
+  const href = v && opts.href ? opts.href(v) : '';
+  return `<div class="comm-field">
+    <label for="c_${field}">${label}</label>
+    <input id="c_${field}" class="comm-input" type="${opts.type || 'text'}" value="${esc(v)}" placeholder="${opts.placeholder || 'Non indiqué'}" maxlength="200"
+      autocomplete="off" onchange="saveText('${field}', this.value)">
+    ${opts.action ? `<a class="comm-action" ${href ? `href="${esc(href)}"` : 'aria-disabled="true" tabindex="-1"'}>${icon(opts.icon)}${opts.action}</a>` : '<span></span>'}
+  </div>`;
+}
+function commCard(l, p){
+  const s = p.suivi || {};
+  return `<section class="group-card comm-card">
+    <h2 class="group-title"><span>Communication</span></h2>
+    <div class="comm-grid">
+      <div>
+        ${commField('Agence', 'contact', l.contact, { placeholder: 'Agence ou particulier' })}
+        ${commField('Agent', 'agent_nom', l.agent_nom, { placeholder: 'Prénom Nom' })}
+        ${commField('Téléphone', 'telephone', l.telephone, { type: 'tel', action: 'Appeler', icon: 'phone', href: v => 'tel:' + v.replace(/[^\d+]/g, '') })}
+        ${commField('E-mail', 'email', l.email, { type: 'email', action: 'Écrire', icon: 'mail', href: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'mailto:' + v : '' })}
+        ${commField('Horaires agence', 'horaires', l.horaires, { placeholder: 'Ex. lun–sam 9h–12h / 14h–19h' })}
+      </div>
+      <div>
+        <p class="comm-sub">Suivi</p>
+        <div class="track-row" style="border-top:none">
+          <label class="check"><input type="checkbox" id="s_contacte" ${s.contacte ? 'checked' : ''} onchange="toggleSuivi('contacte')">Contacté</label>
+          <input type="date" id="s_contacteLe" aria-label="Date du contact" value="${esc(s.contacteLe || '')}" ${s.contacte ? '' : 'disabled'} onchange="saveSuivi()">
+        </div>
+        <div class="track-row">
+          <label class="check"><input type="checkbox" id="s_visite" ${s.visite ? 'checked' : ''} onchange="toggleSuivi('visite')">Visité</label>
+          <input type="date" id="s_visiteLe" aria-label="Date de la visite" value="${esc(s.visiteLe || '')}" ${s.visite ? '' : 'disabled'} onchange="saveSuivi()">
+        </div>
+        <label for="s_notes" class="comm-sub" style="display:block;margin-top:14px">Notes</label>
+        <textarea id="s_notes" class="comm-notes" maxlength="2000" placeholder="Ce qu'a dit l'agent, prochain rappel, impressions de visite…" onchange="saveSuivi()">${esc(s.notes || '')}</textarea>
+      </div>
+    </div>
+  </section>`;
+}
+function toggleSuivi(kind){
+  const on = document.getElementById('s_' + kind).checked;
+  const date = document.getElementById(`s_${kind}Le`);
+  date.disabled = !on;
+  if(on && !date.value) date.value = today();
+  // Visité implique contacté
+  if(kind === 'visite' && on && !document.getElementById('s_contacte').checked){
+    document.getElementById('s_contacte').checked = true;
+    const cd = document.getElementById('s_contacteLe'); cd.disabled = false; if(!cd.value) cd.value = date.value;
+  }
+  saveSuivi();
+}
+async function saveSuivi(){
+  const g = id => document.getElementById(id);
+  const suivi = {
+    contacte: g('s_contacte').checked, contacteLe: g('s_contacte').checked ? (g('s_contacteLe').value || null) : null,
+    visite: g('s_visite').checked, visiteLe: g('s_visite').checked ? (g('s_visiteLe').value || null) : null,
+    notes: g('s_notes').value
+  };
+  await patchAndRender({ project: { suivi } }, 'Suivi enregistré.');
+}
+async function saveText(field, raw){
+  await patchAndRender({ listing: { [field]: raw.trim() || null } }, 'Enregistré.');
+}
+async function patchAndRender(body, okMsg){
+  const status = document.getElementById('pageStatus');
+  const activeId = document.activeElement && document.activeElement.id;
+  status.textContent = 'Enregistrement…';
+  try {
+    entry = await AxIA.patchListing(listingId, body);
+    render();
+    status.innerHTML = `<span class="pos">${okMsg}</span>`;
+    setTimeout(() => { if(status.textContent === okMsg) status.textContent = ''; }, 2000);
+    const el = activeId && document.getElementById(activeId);
+    if(el) el.focus({ preventScroll: true });
+  } catch(err) {
+    status.innerHTML = `<span class="neg">Impossible d'enregistrer : ${esc(err.message)}</span>`;
+  }
 }
 
 async function saveField(group, field, raw){

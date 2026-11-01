@@ -22,7 +22,9 @@
     hardhat: '<path d="M4 17h16v2H4zM6 17v-3a6 6 0 0 1 12 0v3M10 8V5h4v3"/>',
     map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
-    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'
   };
 
   function toggleTheme(){
@@ -116,7 +118,7 @@
     p.travauxDetail = p.travauxDetail || null;
     p.gestionMensuelle = p.gestionMensuelle ?? 0;
     p.travaux = p.travaux ?? 0;
-    p.apport = p.apport ?? 0;
+    p.suivi = Object.assign({ contacte: false, contacteLe: null, visite: false, visiteLe: null, notes: '' }, p.suivi || {});
     if(p.taxeFonciereAnnuelle === undefined && p.taxeFonciereMensuel !== undefined){
       p.taxeFonciereAnnuelle = Math.round((p.taxeFonciereMensuel || 0) * 12);
       p.sources.taxeFonciereAnnuelle = p.sources.taxeFonciereAnnuelle || 'manuel';
@@ -132,6 +134,20 @@
     f.assuranceEmprunteurMensuelle = f.assuranceEmprunteurMensuelle || 0;
     f.capitalEmprunte = f.capitalEmprunte ?? f.totalProjet ?? 0;
     return l;
+  }
+
+  // Date ISO (AAAA-MM-JJ) → JJ/MM
+  function shortDate(iso){
+    if(!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}` : '';
+  }
+  // État du suivi d'un bien : visité > contacté > rien
+  function suiviStatus(entry){
+    const s = (entry.project && entry.project.suivi) || {};
+    if(s.visite) return { kind: 'visite', short: 'Visité', text: 'Visité' + (s.visiteLe ? ' le ' + shortDate(s.visiteLe) : '') };
+    if(s.contacte) return { kind: 'contacte', short: 'Contacté', text: 'Contacté' + (s.contacteLe ? ' le ' + shortDate(s.contacteLe) : '') };
+    return null;
   }
 
   function missingCount(entry){
@@ -234,5 +250,5 @@
     return normalizeEntry(await r.json());
   }
 
-  window.AxIA = { theme, toggleTheme, cssVar, icon, esc, currency, signed, pct, signedPct, scoreColor, scoreBg, ring, marketBlock, normalizeEntry, missingCount, title, renderNav, renderFicheHeader, getListing, patchListing };
+  window.AxIA = { theme, toggleTheme, cssVar, icon, esc, currency, signed, pct, signedPct, scoreColor, scoreBg, ring, marketBlock, normalizeEntry, missingCount, suiviStatus, shortDate, title, renderNav, renderFicheHeader, getListing, patchListing };
 })();

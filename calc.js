@@ -28,7 +28,20 @@ export function computeMensualite(capital, tauxAnnuelPct, dureeAnnees = DUREE_CR
  * - Le cash-flow, lui, tient compte de TOUT : c'est ce qu'il vous reste réellement en poche
  *   chaque mois, crédit et assurance emprunteur inclus.
  */
-export function computeFullMetrics({ listing, sector, project }) {
+export const APPORT_PCT_DEFAUT = 10; // % du coût total du projet, réglable dans Réglages
+
+/**
+ * L'apport est-il saisi à la main pour ce bien ? Sinon il suit le pourcentage par défaut.
+ * Les anciennes analyses (sans marqueur) dont l'apport est > 0 sont considérées comme saisies.
+ */
+export function isApportManuel(project) {
+  const src = project.sources?.apport;
+  if (src === "manuel") return true;
+  if (src === "auto") return false;
+  return (project.apport || 0) > 0;
+}
+
+export function computeFullMetrics({ listing, sector, project, apportPctDefaut = APPORT_PCT_DEFAUT }) {
   const prix = listing.prix || 0;
   const surface = listing.surface || 0;
   const prixM2 = surface ? Math.round(prix / surface) : null;
@@ -40,16 +53,22 @@ export function computeFullMetrics({ listing, sector, project }) {
   const loyerMensuel = project.monthlyRent || 0;
   const loyerAnnuel = loyerMensuel * 12;
 
-  const taxeFonciereMensuelle = (project.taxeFonciereAnnuelle || 0) / 12;
+  // Anciennes analyses : taxe foncière mensuelle et "charges" génériques
+  const taxeFonciereAnnuelle = project.taxeFonciereAnnuelle ?? (project.taxeFonciereMensuel != null ? project.taxeFonciereMensuel * 12 : 0);
+  const chargesCopro = project.chargesCoproMensuelles ?? project.chargesMensuelles ?? 0;
+  const taxeFonciereMensuelle = (taxeFonciereAnnuelle || 0) / 12;
   const chargesTotalMensuel =
     taxeFonciereMensuelle +
-    (project.chargesCoproMensuelles || 0) +
+    (chargesCopro || 0) +
     (project.assurancePNO || 0) +
     (project.gestionMensuelle || 0);
   const chargesTotalAnnuel = chargesTotalMensuel * 12;
 
-  // Apport personnel : réduit le capital emprunté (0 par défaut = financement à 100 %)
-  const apport = Math.max(0, Math.min(project.apport || 0, totalProjet));
+  // Apport personnel : par défaut un pourcentage du coût total, sinon le montant saisi pour ce bien
+  const apportAuto = !isApportManuel(project);
+  const apportPct = apportPctDefaut ?? APPORT_PCT_DEFAUT;
+  const apportBrut = apportAuto ? Math.round(totalProjet * apportPct / 100) : (project.apport || 0);
+  const apport = Math.max(0, Math.min(apportBrut, totalProjet));
   const capitalEmprunte = totalProjet - apport;
 
   const tauxCredit = project.tauxCredit ?? TAUX_CREDIT_DEFAUT;
@@ -65,7 +84,7 @@ export function computeFullMetrics({ listing, sector, project }) {
 
   const cashFlowMensuel = Math.round(loyerMensuel - chargesTotalMensuel - creditMensuel - assuranceEmprunteurMensuelle);
 
-  const ecartMarche = sector && prixM2 ? +(((prixM2 - sector.avg) / sector.avg) * 100).toFixed(1) : null;
+  const ecartMarche = sector?.avg > 0 && prixM2 ? +(((prixM2 - sector.avg) / sector.avg) * 100).toFixed(1) : null;
 
   // Score global sur 100 : rentabilité nette (jusqu'à 30 pts), signe du cash-flow (±10-15 pts),
   // position par rapport au marché du secteur (jusqu'à ±15 pts). Base neutre à 50.
@@ -79,6 +98,8 @@ export function computeFullMetrics({ listing, sector, project }) {
     prixM2,
     totalProjet,
     apport,
+    apportAuto,
+    apportPct: apportAuto ? apportPct : null,
     capitalEmprunte,
     loyerAnnuel,
     chargesTotalMensuel,

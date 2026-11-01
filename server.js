@@ -15,7 +15,7 @@ import { computeFullMetrics, TAUX_CREDIT_DEFAUT, TAUX_ASSURANCE_EMPRUNTEUR_DEFAU
 import { extractPlanRooms } from "./planExtract.js";
 import { computeTotalTravaux } from "./travauxPrix.js";
 import { computeComparaisonFiscale } from "./fiscal.js";
-import { readListings, addListing, updateListing, deleteListing, readProfilFiscal, saveProfilFiscal } from "./storage.js";
+import { readListings, addListing, updateListing, deleteListing, readProfilFiscal, saveProfilFiscal, readRecherches, saveRecherche, deleteRecherche } from "./storage.js";
 
 const app = express();
 app.use(cors());
@@ -26,6 +26,16 @@ app.use(express.static("."));
 // manquant / manuel), afin que l'interface puisse signaler en rouge ce qui reste à vérifier.
 const TRACKED_FIELDS = ["taxeFonciereAnnuelle", "chargesCoproMensuelles", "assurancePNO"];
 
+// Recalcule les indicateurs financiers à chaque lecture : une analyse suit ainsi toujours
+// les formules et réglages actuels (ex. apport par défaut) sans migration de la base.
+async function withFresh(data) {
+  const profil = await readProfilFiscal();
+  const f = (e) => (e && e.listing && e.project)
+    ? { ...e, financials: computeFullMetrics({ listing: e.listing, sector: e.sector, project: e.project, apportPctDefaut: profil.apportPctDefaut }) }
+    : e;
+  return Array.isArray(data) ? data.map(f) : f(data);
+}
+
 app.get("/status", (req, res) => {
   res.json({ status: "AxIA backend en ligne" });
 });
@@ -33,7 +43,7 @@ app.get("/status", (req, res) => {
 app.get("/api/listings", async (req, res) => {
   try {
     const listings = await readListings();
-    res.json({ listings });
+    res.json({ listings: await withFresh(listings) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de lire les analyses sauvegardées.", details: err.message });
@@ -46,7 +56,7 @@ app.get("/api/listings/:id", async (req, res) => {
     const listings = await readListings();
     const entry = listings.find((l) => l.id === req.params.id);
     if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
-    res.json(entry);
+    res.json(await withFresh(entry));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de lire cette analyse.", details: err.message });
@@ -56,12 +66,24 @@ app.get("/api/listings/:id", async (req, res) => {
 app.delete("/api/listings/:id", async (req, res) => {
   try {
     const listings = await deleteListing(req.params.id);
-    res.json({ listings });
+    res.json({ listings: await withFresh(listings) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de supprimer cette analyse.", details: err.message });
   }
 });
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function cleanSuivi(s) {
+  s = s && typeof s === "object" ? s : {};
+  const date = (v) => (typeof v === "string" && DATE_RE.test(v) ? v : null);
+  const contacte = !!s.contacte, visite = !!s.visite;
+  return {
+    contacte, contacteLe: contacte ? date(s.contacteLe) : null,
+    visite, visiteLe: visite ? date(s.visiteLe) : null,
+    notes: typeof s.notes === "string" ? s.notes.slice(0, 2000) : ""
+  };
+}
 
 // Met à jour n'importe quel champ (listing et/ou projet financier), recalcule tout,
 // et marque automatiquement "manuel" tout champ suivi que l'utilisateur vient de modifier.
@@ -88,9 +110,21 @@ app.patch("/api/listings/:id", async (req, res) => {
       for (const key of Object.keys(projectChanges)) {
         if (TRACKED_FIELDS.includes(key)) mergedProject.sources[key] = "manuel";
       }
+      // Suivi (contacté / visité) : on n'accepte que des types propres
+      if ("suivi" in projectChanges) mergedProject.suivi = cleanSuivi(projectChanges.suivi);
+      // Apport : une valeur saisie fige l'apport de ce bien ; un champ vidé le remet sur le % par défaut
+      if ("apport" in projectChanges) {
+        if (projectChanges.apport === null || projectChanges.apport === "") {
+          mergedProject.apport = null;
+          mergedProject.sources.apport = "auto";
+        } else {
+          mergedProject.sources.apport = "manuel";
+        }
+      }
     }
 
-    const financials = computeFullMetrics({ listing: mergedListing, sector: entry.sector, project: mergedProject });
+    const profil = await readProfilFiscal();
+    const financials = computeFullMetrics({ listing: mergedListing, sector: entry.sector, project: mergedProject, apportPctDefaut: profil.apportPctDefaut });
 
     const updated = await updateListing(req.params.id, {
       listing: mergedListing,
@@ -99,7 +133,7 @@ app.patch("/api/listings/:id", async (req, res) => {
       ...(label !== undefined ? { label } : {})
     });
 
-    res.json(updated);
+    res.json(await withFresh(updated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de mettre à jour cette analyse.", details: err.message });
@@ -130,7 +164,7 @@ app.post("/api/listings/:id/plan", async (req, res) => {
 
     const mergedProject = { ...entry.project, travauxDetail };
     const updated = await updateListing(req.params.id, { project: mergedProject });
-    res.json(updated);
+    res.json(await withFresh(updated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de lire ce plan.", details: err.message });
@@ -156,7 +190,7 @@ app.patch("/api/listings/:id/travaux", async (req, res) => {
     const financials = computeFullMetrics({ listing: entry.listing, sector: entry.sector, project: mergedProject });
 
     const updated = await updateListing(req.params.id, { project: mergedProject, financials });
-    res.json(updated);
+    res.json(await withFresh(updated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible d'enregistrer ce chiffrage.", details: err.message });
@@ -172,7 +206,7 @@ app.post("/api/listings/:id/chantier/init", async (req, res) => {
     if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
 
     if (entry.project.chantier) {
-      return res.json(entry); // déjà initialisé, on ne touche à rien
+      return res.json(await withFresh(entry)); // déjà initialisé, on ne touche à rien
     }
 
     // Regroupe le détail du chiffrage (par pièce) en lots, par poste de travaux
@@ -202,7 +236,7 @@ app.post("/api/listings/:id/chantier/init", async (req, res) => {
 
     const mergedProject = { ...entry.project, chantier: { lots, depenses: {}, rad: {} } };
     const updated = await updateListing(req.params.id, { project: mergedProject });
-    res.json(updated);
+    res.json(await withFresh(updated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible d'initialiser le suivi de chantier.", details: err.message });
@@ -220,7 +254,7 @@ app.patch("/api/listings/:id/chantier", async (req, res) => {
 
     const mergedProject = { ...entry.project, chantier: { lots, depenses, rad } };
     const updated = await updateListing(req.params.id, { project: mergedProject });
-    res.json(updated);
+    res.json(await withFresh(updated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible d'enregistrer le suivi de chantier.", details: err.message });
@@ -237,11 +271,35 @@ app.post("/api/geocode-missing", async (req, res) => {
       const coords = await geocodeListing(entry.listing);
       await updateListing(entry.id, { listing: { ...entry.listing, coords, coordsTried: true } });
     }
-    res.json({ listings: await readListings(), geocoded: todo.length });
+    res.json({ listings: await withFresh(await readListings()), geocoded: todo.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de localiser les analyses.", details: err.message });
   }
+});
+
+// Recherches enregistrées par site (LeBonCoin, SeLoger…)
+function cleanRecherche(body) {
+  const url = String(body.url || "").trim();
+  if (!/^https?:\/\//i.test(url)) throw new Error("Le lien doit commencer par http:// ou https://");
+  return {
+    ...(body.id ? { id: String(body.id) } : {}),
+    site: String(body.site || "Autre").slice(0, 40),
+    label: String(body.label || "").trim().slice(0, 80) || "Recherche",
+    url: url.slice(0, 2000)
+  };
+}
+app.get("/api/recherches", async (req, res) => {
+  try { res.json({ recherches: await readRecherches() }); }
+  catch (err) { console.error(err); res.status(500).json({ error: "Impossible de lire vos recherches.", details: err.message }); }
+});
+app.post("/api/recherches", async (req, res) => {
+  try { res.json({ recherches: await saveRecherche(cleanRecherche(req.body || {})) }); }
+  catch (err) { console.error(err); res.status(400).json({ error: "Impossible d'enregistrer cette recherche.", details: err.message }); }
+});
+app.delete("/api/recherches/:id", async (req, res) => {
+  try { res.json({ recherches: await deleteRecherche(req.params.id) }); }
+  catch (err) { console.error(err); res.status(500).json({ error: "Impossible de supprimer cette recherche.", details: err.message }); }
 });
 
 // Profil fiscal global (tranche d'imposition, hypothèses d'amortissement)
@@ -257,7 +315,13 @@ app.get("/api/profil-fiscal", async (req, res) => {
 
 app.patch("/api/profil-fiscal", async (req, res) => {
   try {
-    const profil = await saveProfilFiscal(req.body);
+    const body = { ...(req.body || {}) };
+    if ("apportPctDefaut" in body) {
+      const v = Number(body.apportPctDefaut);
+      if (!Number.isFinite(v)) delete body.apportPctDefaut;
+      else body.apportPctDefaut = Math.min(100, Math.max(0, v));
+    }
+    const profil = await saveProfilFiscal(body);
     res.json(profil);
   } catch (err) {
     console.error(err);
@@ -275,8 +339,9 @@ app.get("/api/listings/:id/fiscal", async (req, res) => {
     const profilFiscal = await readProfilFiscal();
     const modeLocation = req.query.mode === "meuble" ? "meuble" : "nu";
 
+    const fresh = await withFresh(entry);
     const comparaison = computeComparaisonFiscale({
-      listing: entry.listing, project: entry.project, financials: entry.financials,
+      listing: entry.listing, project: entry.project, financials: fresh.financials,
       profilFiscal, modeLocation
     });
 
@@ -351,8 +416,9 @@ app.post("/api/analyze", async (req, res) => {
       gestionMensuelle: 0,
       tauxCredit: TAUX_CREDIT_DEFAUT,
       tauxAssuranceEmprunteur: TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT,
-      apport: 0,
-      sources
+      apport: null, // suit le % d'apport par défaut tant qu'il n'est pas saisi
+      suivi: { contacte: false, contacteLe: null, visite: false, visiteLe: null, notes: "" },
+      sources: { ...sources, apport: "auto" }
     };
 
     // Étape 10 : calcul complet
@@ -363,7 +429,7 @@ app.post("/api/analyze", async (req, res) => {
       .filter(Boolean).join(" ") || "Annonce sans nom";
 
     const saved = await addListing({ listing, sector, project, financials, label });
-    res.json(saved);
+    res.json(await withFresh(saved));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Une erreur est survenue pendant l'analyse.", details: err.message });

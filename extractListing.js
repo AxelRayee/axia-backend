@@ -99,7 +99,11 @@ export async function extractListingFromUrl(input) {
   "type_bien": "Appartement" ou "Maison",
   "pieces": nombre ou null,
   "dpe": lettre A à G ou null,
-  "contact": chaîne de caractères ou null (nom de l'agence, du contact, ou numéro de téléphone si mentionné),
+  "contact": chaîne de caractères ou null (nom de l'agence, ou du particulier si vente entre particuliers),
+  "agent_nom": chaîne de caractères ou null (prénom et nom du conseiller / de l'agent, UNIQUEMENT si écrit),
+  "telephone": chaîne de caractères ou null (numéro de téléphone tel qu'écrit dans l'annonce),
+  "email": chaîne de caractères ou null (adresse e-mail UNIQUEMENT si écrite),
+  "horaires": chaîne de caractères ou null (horaires d'ouverture de l'agence UNIQUEMENT si écrits, format court),
   "taxe_fonciere_annuelle": nombre ou null (UNIQUEMENT si le montant annuel de la taxe foncière est explicitement mentionné dans l'annonce),
   "charges_copro_mensuelles": nombre ou null (UNIQUEMENT si des charges de copropriété mensuelles sont explicitement mentionnées, hors eau/électricité/chauffage individuels),
   "resume": courte phrase résumant le bien

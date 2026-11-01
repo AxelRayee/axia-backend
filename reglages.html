@@ -41,6 +41,10 @@
         <label for="dureeTravaux">Amortissement travaux (ans)</label>
         <input type="number" id="dureeTravaux" min="1" step="1">
       </div>
+      <div class="field">
+        <label for="apportPct">Apport par défaut (% du coût total)</label>
+        <input type="number" id="apportPct" min="0" max="100" step="1">
+      </div>
       <button type="submit" class="btn-primary">Enregistrer</button>
     </form>
     <div class="status-msg" id="profilStatus" role="status" aria-live="polite"></div>
@@ -52,11 +56,15 @@
     <div class="line"><span>Crédit</span><span class="val">3,45 % sur 25 ans</span></div>
     <div class="line"><span>Assurance emprunteur</span><span class="val">0,34 % du capital par an</span></div>
     <div class="line"><span>Frais de notaire</span><span class="val">7,5 % du prix (ancien)</span></div>
-    <div class="line"><span>Apport</span><span class="val">0 € (financement à 100 %)</span></div>
+    <div class="line"><span>Apport</span><span class="val" id="apportLine">10 % du coût total (prix + notaire + travaux)</span></div>
+    <p class="hint" style="margin-top:12px">L'apport par défaut s'applique à tous les biens dont vous n'avez pas saisi l'apport, y compris les analyses déjà enregistrées.</p>
   </section>
 </main>
 
 <script>
+function showApport(v){
+  document.getElementById('apportLine').textContent = v > 0 ? `${String(v).replace('.', ',')} % du coût total (prix + notaire + travaux)` : '0 € (financement à 100 %)';
+}
 async function loadProfil(){
   try {
     const r = await fetch('/api/profil-fiscal');
@@ -65,6 +73,8 @@ async function loadProfil(){
     document.getElementById('partTerrain').value = p.partTerrainPct;
     document.getElementById('dureeImmeuble').value = p.dureeAmortImmeubleAns;
     document.getElementById('dureeTravaux').value = p.dureeAmortTravauxAns;
+    document.getElementById('apportPct').value = p.apportPctDefaut ?? 10;
+    showApport(p.apportPctDefaut ?? 10);
   } catch(err) {
     document.getElementById('profilStatus').innerHTML = '<span class="neg">Impossible de charger le profil.</span>';
   }
@@ -79,11 +89,13 @@ async function saveProfil(){
         tmi: parseFloat(document.getElementById('tmi').value),
         partTerrainPct: parseFloat(document.getElementById('partTerrain').value),
         dureeAmortImmeubleAns: parseFloat(document.getElementById('dureeImmeuble').value),
-        dureeAmortTravauxAns: parseFloat(document.getElementById('dureeTravaux').value)
+        dureeAmortTravauxAns: parseFloat(document.getElementById('dureeTravaux').value),
+        apportPctDefaut: parseFloat(document.getElementById('apportPct').value)
       })
     });
     if(!r.ok) throw new Error('Erreur serveur');
     status.innerHTML = '<span class="pos">Profil enregistré.</span>';
+    showApport(parseFloat(document.getElementById('apportPct').value));
     AxIA.renderNav('reglages');
   } catch(err) {
     status.innerHTML = `<span class="neg">Erreur : ${AxIA.esc(err.message)}</span>`;

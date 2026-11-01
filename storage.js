@@ -85,11 +85,10 @@ export async function deleteListing(id) {
 export async function readProfilFiscal() {
   const db = await getDb();
   const doc = await db.collection("settings").findOne({ _key: "profil_fiscal" });
-  if (!doc) {
-    return { tmi: 30, partTerrainPct: 15, dureeAmortImmeubleAns: 25, dureeAmortTravauxAns: 10 };
-  }
+  const defaults = { tmi: 30, partTerrainPct: 15, dureeAmortImmeubleAns: 25, dureeAmortTravauxAns: 10, apportPctDefaut: 10 };
+  if (!doc) return defaults;
   const { _id, _key, ...rest } = doc;
-  return rest;
+  return { ...defaults, ...rest };
 }
 
 export async function saveProfilFiscal(data) {
@@ -100,4 +99,26 @@ export async function saveProfilFiscal(data) {
     { upsert: true }
   );
   return readProfilFiscal();
+}
+
+/**
+ * Recherches enregistrées (liens LeBonCoin, SeLoger, PAP…), plusieurs par site.
+ */
+export async function readRecherches() {
+  const db = await getDb();
+  const docs = await db.collection("recherches").find({}).sort({ site: 1, createdAt: 1 }).toArray();
+  return docs.map(clean);
+}
+
+export async function saveRecherche(entry) {
+  const db = await getDb();
+  const doc = { ...entry, id: entry.id || Date.now().toString(), createdAt: entry.createdAt || new Date().toISOString() };
+  await db.collection("recherches").updateOne({ id: doc.id }, { $set: doc }, { upsert: true });
+  return readRecherches();
+}
+
+export async function deleteRecherche(id) {
+  const db = await getDb();
+  await db.collection("recherches").deleteOne({ id });
+  return readRecherches();
 }
