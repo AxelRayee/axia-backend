@@ -98,6 +98,7 @@ export async function extractListingFromUrl(input) {
   "code_postal": chaîne de caractères ou null,
   "type_bien": "Appartement" ou "Maison",
   "pieces": nombre ou null,
+  "chambres": nombre ou null (nombre de chambres UNIQUEMENT si indiqué),
   "dpe": lettre A à G ou null,
   "contact": chaîne de caractères ou null (nom de l'agence, ou du particulier si vente entre particuliers),
   "agent_nom": chaîne de caractères ou null (prénom et nom du conseiller / de l'agent, UNIQUEMENT si écrit),

@@ -157,6 +157,7 @@ function renderCards(list){
     const suivi = AxIA.suiviStatus(l);
     const badges = [lst.surface ? `${lst.surface} m²` : null, lst.dpe ? `DPE ${lst.dpe}` : null, lst.imageIsCity ? 'Photo de la ville' : null]
       .filter(Boolean).map(b => `<span class="badge">${esc(b)}</span>`).join('')
+      + (l.financials.modeLocation === 'coloc' ? `<span class="badge">Coloc ${l.financials.coloc?.chambres || ''} ch.</span>` : '')
       + (suivi ? `<span class="badge badge-suivi ${suivi.kind}">${esc(suivi.short)}</span>` : '');
     const net = f.rentabiliteNette !== null && f.rentabiliteNette !== undefined ? pct(f.rentabiliteNette) : '—';
     const ecClass = f.ecartMarche === null || f.ecartMarche === undefined ? '' : (f.ecartMarche <= 0 ? 'pos' : 'neg');
@@ -244,7 +245,9 @@ function renderTable(list){
       <td class="num">${numCell(l, 'travaux', { width: '88px', step: 500, label: 'Travaux' })}</td>
       <td class="num">${numCell(l, 'fraisNotaire', { width: '88px', step: 500, label: 'Frais de notaire' })}</td>
       <td class="num" style="font-weight:600">${currency(f.totalProjet)}</td>
-      <td class="num gsep">${numCell(l, 'monthlyRent', { width: '76px', step: 10, label: 'Loyer mensuel' })}${srcMark(p.rentEstimated ? 'estimation' : '')}</td>
+      <td class="num gsep">${f.modeLocation === 'coloc'
+        ? `<a class="coloc-rent" href="fiche.html?id=${encodeURIComponent(l.id)}" title="Colocation : ${f.coloc?.chambres || '?'} chambres × ${currency(f.coloc?.loyerChambre)}. Modifiable dans la fiche.">${currency(f.loyerMensuel)} <span class="suivi-tag contacte">coloc</span></a>`
+        : numCell(l, 'monthlyRent', { width: '76px', step: 10, label: 'Loyer mensuel' }) + srcMark(p.rentEstimated ? 'estimation' : '')}</td>
       <td class="num">${currency(f.loyerAnnuel)}</td>
       <td class="num gsep">${numCell(l, 'taxeFonciereAnnuelle', { width: '80px', step: 50, missing: src.taxeFonciereAnnuelle === 'manquant', label: 'Taxe foncière annuelle' })}${srcMark(src.taxeFonciereAnnuelle)}</td>
       <td class="num">${numCell(l, 'chargesCoproMensuelles', { width: '70px', missing: src.chargesCoproMensuelles === 'manquant', label: 'Charges de copropriété' })}${srcMark(src.chargesCoproMensuelles)}</td>
@@ -514,7 +517,11 @@ function exportExcel(){
     "Travaux": l.project.travaux || 0,
     "Frais de notaire": l.project.fraisNotaire || 0,
     "Total projet": l.financials.totalProjet || 0,
-    "Loyer Mensuel": l.project.monthlyRent || 0,
+    "Mode de location": l.financials.modeLocation === 'coloc' ? 'Colocation' : 'Entier',
+    "Chambres (coloc)": l.financials.coloc?.chambres ?? '',
+    "Loyer par chambre": l.financials.coloc?.loyerChambre ?? '',
+    "Loyer bien entier": l.project.monthlyRent || 0,
+    "Loyer mensuel retenu": l.financials.loyerMensuel ?? (l.project.monthlyRent || 0),
     "Loyer annuel": l.financials.loyerAnnuel || 0,
     "Taxe foncière annuelle": l.project.taxeFonciereAnnuelle || 0,
     "Charges copro mensuelles": l.project.chargesCoproMensuelles || 0,

@@ -41,7 +41,41 @@ export function isApportManuel(project) {
   return (project.apport || 0) > 0;
 }
 
-export function computeFullMetrics({ listing, sector, project, apportPctDefaut = APPORT_PCT_DEFAUT }) {
+// ---------- Colocation ----------
+// Loyer moyen d'une chambre en colocation, par ville. Source : baromètre Studapart,
+// 1er semestre 2026 (annonces de chambres, à ~99 % meublées, proches des universités).
+// Les villes ajoutées ou corrigées dans Réglages passent avant ce tableau.
+export const LOYERS_COLOC_DEFAUT = [
+  { ville: "Paris", loyer: 823, source: "Studapart S1 2026" },
+  { ville: "Nice", loyer: 656, source: "Studapart S1 2026" },
+  { ville: "Bordeaux", loyer: 549, source: "Studapart S1 2026" },
+  { ville: "Marseille", loyer: 496, source: "Studapart S1 2026" },
+  { ville: "Lyon", loyer: 485, source: "Studapart S1 2026" },
+  { ville: "Nantes", loyer: 441, source: "Studapart S1 2026" },
+  { ville: "Toulouse", loyer: 440, source: "Studapart S1 2026" },
+  { ville: "Lille", loyer: 433, source: "Studapart S1 2026" },
+  { ville: "Rennes", loyer: 417, source: "Studapart S1 2026" }
+];
+// Sans tarif connu pour la ville : loyer du bien entier majoré de 20 %, réparti par chambre.
+// Ordre de grandeur seulement (affiché « peu fiable »).
+export const PRIME_COLOC_ESTIMATION = 1.2;
+
+export function normVille(v) {
+  return String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/\b\d+(e|er|eme)?\b/g, "").replace(/arrondissement/g, "").replace(/[^a-z]+/g, " ").trim();
+}
+export function loyerColocVille(ville, table) {
+  const n = normVille(ville);
+  if (!n) return null;
+  return (table || []).find((t) => normVille(t.ville) === n) || null;
+}
+export function chambresParDefaut(listing) {
+  if (listing.chambres > 0) return listing.chambres;
+  if (listing.pieces > 1) return listing.pieces - 1; // T3 → 2 chambres (séjour exclu)
+  return null;
+}
+
+export function computeFullMetrics({ listing, sector, project, apportPctDefaut = APPORT_PCT_DEFAUT, loyersColoc = LOYERS_COLOC_DEFAUT }) {
   const prix = listing.prix || 0;
   const surface = listing.surface || 0;
   const prixM2 = surface ? Math.round(prix / surface) : null;
@@ -50,8 +84,37 @@ export function computeFullMetrics({ listing, sector, project, apportPctDefaut =
   const fraisNotaire = project.fraisNotaire || 0;
   const totalProjet = prix + travaux + fraisNotaire;
 
-  const loyerMensuel = project.monthlyRent || 0;
+  // Mode de location : entier, colocation, ou les deux (on retient alors celui choisi)
+  const loc = project.location || {};
+  const modeEntier = loc.entier !== false;
+  const modeColoc = !!loc.coloc;
+  const retenu = modeColoc && (!modeEntier || loc.retenu === "coloc") ? "coloc" : "entier";
+
+  const loyerEntier = project.monthlyRent || 0;
+  let coloc = null;
+  if (modeColoc) {
+    const chambres = loc.chambres > 0 ? Math.round(loc.chambres) : chambresParDefaut(listing);
+    const villeTarif = loyerColocVille(listing.ville, loyersColoc);
+    let loyerChambre = null, source = null, sourceDetail = null;
+    if (loc.loyerChambre > 0) { loyerChambre = loc.loyerChambre; source = "manuel"; }
+    else if (villeTarif) { loyerChambre = villeTarif.loyer; source = "ville"; sourceDetail = villeTarif.source || null; }
+    else if (loyerEntier > 0 && chambres) { loyerChambre = Math.round(loyerEntier * PRIME_COLOC_ESTIMATION / chambres); source = "estimation"; }
+    coloc = {
+      chambres: chambres || null,
+      chambresAuto: !(loc.chambres > 0),
+      loyerChambre,
+      source,
+      sourceDetail,
+      chargesMensuelles: loc.chargesColoc || 0,
+      chargesManquantes: loc.chargesColoc == null,
+      loyerMensuel: chambres && loyerChambre ? chambres * loyerChambre : 0
+    };
+  }
+
+  const loyerMensuel = retenu === "coloc" ? coloc.loyerMensuel : loyerEntier;
   const loyerAnnuel = loyerMensuel * 12;
+  // Charges propres à la colocation (énergie, internet, eau… souvent incluses dans le loyer d'une chambre)
+  const chargesColocMensuelles = retenu === "coloc" ? coloc.chargesMensuelles : 0;
 
   // Anciennes analyses : taxe foncière mensuelle et "charges" génériques
   const taxeFonciereAnnuelle = project.taxeFonciereAnnuelle ?? (project.taxeFonciereMensuel != null ? project.taxeFonciereMensuel * 12 : 0);
@@ -61,7 +124,8 @@ export function computeFullMetrics({ listing, sector, project, apportPctDefaut =
     taxeFonciereMensuelle +
     (chargesCopro || 0) +
     (project.assurancePNO || 0) +
-    (project.gestionMensuelle || 0);
+    (project.gestionMensuelle || 0) +
+    chargesColocMensuelles;
   const chargesTotalAnnuel = chargesTotalMensuel * 12;
 
   // Apport personnel : par défaut un pourcentage du coût total, sinon le montant saisi pour ce bien
@@ -94,8 +158,27 @@ export function computeFullMetrics({ listing, sector, project, apportPctDefaut =
   if (ecartMarche !== null) score += Math.max(-15, Math.min(15, -ecartMarche / 2));
   score = Math.max(0, Math.min(100, Math.round(score)));
 
+  // Scénario non retenu, pour comparer (uniquement si les deux modes sont cochés)
+  let alternative = null;
+  if (modeEntier && modeColoc) {
+    const altColoc = retenu === "entier";
+    const altLoyer = altColoc ? coloc.loyerMensuel : loyerEntier;
+    const altCharges = chargesTotalMensuel - chargesColocMensuelles + (altColoc ? coloc.chargesMensuelles : 0);
+    alternative = {
+      mode: altColoc ? "coloc" : "entier",
+      loyerMensuel: altLoyer,
+      rentabiliteNette: totalProjet > 0 ? +((((altLoyer - altCharges) * 12) / totalProjet) * 100).toFixed(2) : null,
+      cashFlowMensuel: Math.round(altLoyer - altCharges - creditMensuel - assuranceEmprunteurMensuelle)
+    };
+  }
+
   return {
     prixM2,
+    modeLocation: retenu,
+    loyerMensuel,
+    coloc,
+    chargesColocMensuelles,
+    alternative,
     totalProjet,
     apport,
     apportAuto,

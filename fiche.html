@@ -28,13 +28,13 @@ const { icon, esc, currency, signed, pct, marketBlock } = AxIA;
 const listingId = new URLSearchParams(location.search).get('id');
 let entry = null;
 
-const SRC_LABEL = { ann: 'Annonce', est: 'Estimé', you: 'Saisi', miss: 'À compléter', chif: 'Chiffrage' };
+const SRC_LABEL = { ann: 'Annonce', est: 'Estimé', you: 'Saisi', miss: 'À compléter', chif: 'Chiffrage', vil: 'Tarif ville', auto: 'Auto' };
 function srcFromTracked(s){
   return { annonce: 'ann', estimation: 'est', manquant: 'miss', manuel: 'you', chiffrage: 'chif' }[s] || '';
 }
 function badge(kind, extra){
   if(!kind) return '';
-  const cls = kind === 'chif' ? 'you' : kind;
+  const cls = { chif: 'you', vil: 'ann', auto: 'est' }[kind] || kind;
   return `<span class="src ${cls}">${SRC_LABEL[kind]}${extra ? ' · ' + extra : ''}</span>`;
 }
 
@@ -78,10 +78,7 @@ function render(){
       inputRow('Travaux', 'project', 'travaux', p.travaux, { src: travauxSrc, step: 500 }) +
       calcRow('Total projet', currency(f.totalProjet), { total: true })
     ) +
-    group('Loyer',
-      inputRow('Loyer mensuel', 'project', 'monthlyRent', p.monthlyRent, { src: loyerSrc, srcExtra: p.rentEstimated && p.rentFiable === false ? 'peu fiable' : '', step: 10 }) +
-      calcRow('Loyer annuel', currency(f.loyerAnnuel), { total: true })
-    ) +
+    group('Loyer', loyerRows(l, p, f, loyerSrc)) +
     group('Charges',
       inputRow('Taxe foncière', 'project', 'taxeFonciereAnnuelle', p.taxeFonciereAnnuelle, { src: srcFromTracked(src.taxeFonciereAnnuelle), unit: '€/an', step: 50 }) +
       inputRow('Charges de copropriété', 'project', 'chargesCoproMensuelles', p.chargesCoproMensuelles, { src: srcFromTracked(src.chargesCoproMensuelles), unit: '€/mois' }) +
@@ -107,12 +104,16 @@ function render(){
   if(src.chargesCoproMensuelles === 'manquant') missing.push('Charges de copropriété');
   if(src.assurancePNO === 'manquant') missing.push('Assurance PNO');
   if(!l.dpe) missing.push('DPE');
+  if(f.coloc){
+    if(!f.coloc.chambres) missing.push('Nombre de chambres');
+    if(f.coloc.chargesManquantes) missing.push('Charges incluses de la colocation');
+  }
   const market = marketBlock(entry, { scale: true });
 
   document.getElementById('side').innerHTML = `
     <section class="group-card results">
       <h2 class="group-title"><span>Résultats</span></h2>
-      <div class="kpi-label">Cash-flow mensuel</div>
+      <div class="kpi-label">Cash-flow mensuel${f.modeLocation === 'coloc' ? ' · colocation' : ''}</div>
       <div class="big-number ${f.cashFlowMensuel >= 0 ? 'pos' : 'neg'}">${signed(f.cashFlowMensuel)}</div>
       <div class="small-note">Loyer − charges − crédit − assurance emprunteur, avant impôt</div>
       <div class="duo">
@@ -129,6 +130,61 @@ function render(){
 
   document.getElementById('ficheBody').hidden = false;
   document.getElementById('pageStatus').textContent = '';
+}
+
+// ---------- Loyer : location entière et/ou colocation ----------
+function loyerRows(l, p, f, loyerSrc){
+  const loc = p.location || {};
+  const entierOn = loc.entier !== false, colocOn = !!loc.coloc, both = entierOn && colocOn;
+  const c = f.coloc;
+  let html = `<div class="frow mode-row">
+    <div class="frow-label"><span>Location</span></div>
+    <div class="mode-checks">
+      <label class="check sm"><input type="checkbox" id="m_entier" ${entierOn ? 'checked' : ''} onchange="setMode('entier', this.checked)">Entier</label>
+      <label class="check sm"><input type="checkbox" id="m_coloc" ${colocOn ? 'checked' : ''} onchange="setMode('coloc', this.checked)">Colocation</label>
+    </div>
+  </div>`;
+  if(entierOn){
+    html += inputRow(colocOn ? 'Loyer bien entier' : 'Loyer mensuel', 'project', 'monthlyRent', p.monthlyRent, { src: loyerSrc, srcExtra: p.rentEstimated && p.rentFiable === false ? 'peu fiable' : '', step: 10 });
+  }
+  if(colocOn && c){
+    const chSrc = !c.chambresAuto ? 'you' : (c.chambres ? 'auto' : 'miss');
+    const lcSrc = { manuel: 'you', ville: 'vil', estimation: 'est' }[c.source] || 'miss';
+    const lcExtra = c.source === 'ville' ? (c.sourceDetail || '') : (c.source === 'estimation' ? 'peu fiable' : '');
+    const lcTitle = c.source === 'estimation'
+      ? `Aucun tarif de colocation enregistré pour ${l.ville || 'cette ville'} : loyer du bien entier + 20 %, divisé par le nombre de chambres. Ajoutez la ville dans Réglages ou saisissez un montant.`
+      : (c.source === 'ville' ? `Tarif moyen d'une chambre à ${l.ville} (${c.sourceDetail || 'Réglages'}). Saisissez un montant pour ce bien si besoin.` : 'Videz le champ pour revenir au tarif de la ville.');
+    html +=
+      inputRow('Chambres', 'loc', 'chambres', loc.chambres ?? '', { src: chSrc, srcExtra: chSrc === 'auto' ? (l.chambres ? 'annonce' : 'pièces − 1') : '', placeholder: c.chambres ?? '—', unit: 'ch.', step: 1, title: 'Videz le champ pour revenir au nombre déduit de l\'annonce.' }) +
+      inputRow('Loyer par chambre', 'loc', 'loyerChambre', loc.loyerChambre ?? '', { src: lcSrc, srcExtra: lcExtra, placeholder: c.loyerChambre ?? '—', unit: '€/mois', step: 10, title: lcTitle }) +
+      inputRow('Charges incluses (énergie, internet…)', 'loc', 'chargesColoc', loc.chargesColoc ?? '', { src: c.chargesManquantes ? 'miss' : 'you', unit: '€/mois', step: 10, title: 'Ce que vous payez pour les colocataires si le loyer est charges comprises. Saisissez 0 si elles sont refacturées.' }) +
+      calcRow('Loyer colocation', currency(c.loyerMensuel), { unit: '/mois' });
+  }
+  if(both){
+    const alt = f.alternative;
+    html += `<div class="frow mode-row">
+      <div class="frow-label"><span>Retenu pour le calcul</span></div>
+      <div class="segmented sm" role="group" aria-label="Scénario retenu">
+        <button type="button" aria-pressed="${f.modeLocation === 'entier'}" onclick="setRetenu('entier')">Entier</button>
+        <button type="button" aria-pressed="${f.modeLocation === 'coloc'}" onclick="setRetenu('coloc')">Coloc</button>
+      </div>
+    </div>
+    ${alt ? `<p class="alt-note">Si ${alt.mode === 'coloc' ? 'colocation' : 'location entière'} : cash-flow <strong class="${alt.cashFlowMensuel >= 0 ? 'pos' : 'neg'}">${signed(alt.cashFlowMensuel)}</strong>/mois · rendement net ${pct(alt.rentabiliteNette, 2)}</p>` : ''}`;
+  }
+  html += calcRow(both || colocOn ? `Loyer annuel retenu` : 'Loyer annuel', currency(f.loyerAnnuel), { total: true });
+  return html;
+}
+function locationNow(){
+  const loc = entry.project.location || {};
+  return { entier: loc.entier !== false, coloc: !!loc.coloc, retenu: loc.retenu || 'entier', chambres: loc.chambres ?? null, loyerChambre: loc.loyerChambre ?? null, chargesColoc: loc.chargesColoc ?? null };
+}
+async function setMode(kind, on){
+  const loc = { ...locationNow(), [kind]: on };
+  if(!loc.entier && !loc.coloc) loc[kind === 'entier' ? 'coloc' : 'entier'] = true; // au moins un mode
+  await patchAndRender({ project: { location: loc } }, 'Mode de location enregistré.');
+}
+async function setRetenu(mode){
+  await patchAndRender({ project: { location: { ...locationNow(), retenu: mode } } }, 'Scénario retenu enregistré.');
 }
 
 // ---------- Communication ----------
@@ -214,7 +270,9 @@ async function patchAndRender(body, okMsg){
 
 async function saveField(group, field, raw){
   const value = raw === '' ? null : (parseFloat(raw) || 0);
-  const body = { [group]: { [field]: value } };
+  const body = group === 'loc'
+    ? { project: { location: { ...locationNow(), [field]: value } } }
+    : { [group]: { [field]: value } };
   if(group === 'project' && field === 'monthlyRent') body.project.rentEstimated = false;
   const status = document.getElementById('pageStatus');
   // Mémorise le champ où se trouve l'utilisateur (ex. après Tab) pour l'y remettre après le recalcul

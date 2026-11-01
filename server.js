@@ -11,7 +11,7 @@ import { getCommuneInfo, geocodeListing } from "./geo.js";
 import { getCityImage } from "./cityImage.js";
 import { estimateTaxeFonciere } from "./taxeFonciere.js";
 import { estimateAssurancePNO } from "./assurance.js";
-import { computeFullMetrics, TAUX_CREDIT_DEFAUT, TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT } from "./calc.js";
+import { computeFullMetrics, TAUX_CREDIT_DEFAUT, TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT, LOYERS_COLOC_DEFAUT } from "./calc.js";
 import { extractPlanRooms } from "./planExtract.js";
 import { computeTotalTravaux } from "./travauxPrix.js";
 import { computeComparaisonFiscale } from "./fiscal.js";
@@ -28,10 +28,17 @@ const TRACKED_FIELDS = ["taxeFonciereAnnuelle", "chargesCoproMensuelles", "assur
 
 // Recalcule les indicateurs financiers à chaque lecture : une analyse suit ainsi toujours
 // les formules et réglages actuels (ex. apport par défaut) sans migration de la base.
-async function withFresh(data) {
+// Profil complet : le tableau des loyers de colocation vaut celui par défaut tant qu'il n'a pas été modifié
+async function readProfil() {
   const profil = await readProfilFiscal();
+  return { ...profil, loyersColoc: Array.isArray(profil.loyersColoc) ? profil.loyersColoc : LOYERS_COLOC_DEFAUT };
+}
+const calcOpts = (profil) => ({ apportPctDefaut: profil.apportPctDefaut, loyersColoc: profil.loyersColoc });
+
+async function withFresh(data) {
+  const profil = await readProfil();
   const f = (e) => (e && e.listing && e.project)
-    ? { ...e, financials: computeFullMetrics({ listing: e.listing, sector: e.sector, project: e.project, apportPctDefaut: profil.apportPctDefaut }) }
+    ? { ...e, financials: computeFullMetrics({ listing: e.listing, sector: e.sector, project: e.project, ...calcOpts(profil) }) }
     : e;
   return Array.isArray(data) ? data.map(f) : f(data);
 }
@@ -85,6 +92,22 @@ function cleanSuivi(s) {
   };
 }
 
+// Mode de location (entier / colocation) : nombres positifs ou null (= valeur automatique)
+function cleanLocation(l) {
+  l = l && typeof l === "object" ? l : {};
+  const pos = (v, max) => { const n = Number(v); return v !== null && v !== "" && Number.isFinite(n) && n > 0 ? Math.min(n, max) : null; };
+  const coloc = !!l.coloc;
+  const entier = coloc ? l.entier !== false : true; // au moins un mode coché
+  const chargesColoc = l.chargesColoc === 0 || l.chargesColoc === "0" ? 0 : pos(l.chargesColoc, 5000);
+  return {
+    entier, coloc,
+    retenu: entier && coloc && l.retenu === "coloc" ? "coloc" : (coloc && !entier ? "coloc" : "entier"),
+    chambres: pos(l.chambres, 20) ? Math.round(pos(l.chambres, 20)) : null,
+    loyerChambre: pos(l.loyerChambre, 5000),
+    chargesColoc
+  };
+}
+
 // Met à jour n'importe quel champ (listing et/ou projet financier), recalcule tout,
 // et marque automatiquement "manuel" tout champ suivi que l'utilisateur vient de modifier.
 app.patch("/api/listings/:id", async (req, res) => {
@@ -112,6 +135,7 @@ app.patch("/api/listings/:id", async (req, res) => {
       }
       // Suivi (contacté / visité) : on n'accepte que des types propres
       if ("suivi" in projectChanges) mergedProject.suivi = cleanSuivi(projectChanges.suivi);
+      if ("location" in projectChanges) mergedProject.location = cleanLocation(projectChanges.location);
       // Apport : une valeur saisie fige l'apport de ce bien ; un champ vidé le remet sur le % par défaut
       if ("apport" in projectChanges) {
         if (projectChanges.apport === null || projectChanges.apport === "") {
@@ -123,8 +147,8 @@ app.patch("/api/listings/:id", async (req, res) => {
       }
     }
 
-    const profil = await readProfilFiscal();
-    const financials = computeFullMetrics({ listing: mergedListing, sector: entry.sector, project: mergedProject, apportPctDefaut: profil.apportPctDefaut });
+    const profil = await readProfil();
+    const financials = computeFullMetrics({ listing: mergedListing, sector: entry.sector, project: mergedProject, ...calcOpts(profil) });
 
     const updated = await updateListing(req.params.id, {
       listing: mergedListing,
@@ -305,8 +329,7 @@ app.delete("/api/recherches/:id", async (req, res) => {
 // Profil fiscal global (tranche d'imposition, hypothèses d'amortissement)
 app.get("/api/profil-fiscal", async (req, res) => {
   try {
-    const profil = await readProfilFiscal();
-    res.json(profil);
+    res.json(await readProfil());
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible de lire le profil fiscal.", details: err.message });
@@ -321,8 +344,15 @@ app.patch("/api/profil-fiscal", async (req, res) => {
       if (!Number.isFinite(v)) delete body.apportPctDefaut;
       else body.apportPctDefaut = Math.min(100, Math.max(0, v));
     }
-    const profil = await saveProfilFiscal(body);
-    res.json(profil);
+    if ("loyersColoc" in body) {
+      if (!Array.isArray(body.loyersColoc)) delete body.loyersColoc;
+      else body.loyersColoc = body.loyersColoc
+        .map((t) => ({ ville: String(t?.ville || "").trim().slice(0, 60), loyer: Math.round(Number(t?.loyer)), source: String(t?.source || "Saisi").slice(0, 60) }))
+        .filter((t) => t.ville && t.loyer > 0 && t.loyer <= 5000)
+        .slice(0, 200);
+    }
+    await saveProfilFiscal(body);
+    res.json(await readProfil());
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Impossible d'enregistrer le profil fiscal.", details: err.message });
@@ -336,7 +366,7 @@ app.get("/api/listings/:id/fiscal", async (req, res) => {
     const entry = listings.find((l) => l.id === req.params.id);
     if (!entry) return res.status(404).json({ error: "Analyse introuvable." });
 
-    const profilFiscal = await readProfilFiscal();
+    const profilFiscal = await readProfil();
     const modeLocation = req.query.mode === "meuble" ? "meuble" : "nu";
 
     const fresh = await withFresh(entry);
@@ -418,6 +448,7 @@ app.post("/api/analyze", async (req, res) => {
       tauxAssuranceEmprunteur: TAUX_ASSURANCE_EMPRUNTEUR_DEFAUT,
       apport: null, // suit le % d'apport par défaut tant qu'il n'est pas saisi
       suivi: { contacte: false, contacteLe: null, visite: false, visiteLe: null, notes: "" },
+      location: { entier: true, coloc: false, retenu: "entier", chambres: null, loyerChambre: null, chargesColoc: null },
       sources: { ...sources, apport: "auto" }
     };
 

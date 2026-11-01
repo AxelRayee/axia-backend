@@ -51,6 +51,17 @@
   </section>
 
   <section class="panel">
+    <h2>Loyers de colocation par ville</h2>
+    <p class="hint">Loyer moyen d'une chambre, utilisé quand vous cochez « Colocation » sur une fiche. Valeurs de départ : baromètre Studapart, 1er semestre 2026, des chambres surtout meublées et proches des universités, donc plutôt étudiantes. Pour une ville absente, AxIA prend le loyer du bien entier + 20 % divisé par le nombre de chambres, et l'affiche « peu fiable ». Ajoutez vos villes avec les prix que vous constatez sur le terrain.</p>
+    <div id="colocList" class="coloc-list"></div>
+    <div class="coloc-actions">
+      <button type="button" class="btn-ghost" onclick="addColocRow()">+ Ajouter une ville</button>
+      <button type="button" class="btn-primary" onclick="saveColoc()">Enregistrer les loyers</button>
+    </div>
+    <div class="status-msg" id="colocStatus" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="panel">
     <h2>Valeurs par défaut des nouvelles analyses</h2>
     <p class="hint">Appliquées à chaque nouvelle annonce, puis modifiables bien par bien dans sa fiche.</p>
     <div class="line"><span>Crédit</span><span class="val">3,45 % sur 25 ans</span></div>
@@ -62,6 +73,39 @@
 </main>
 
 <script>
+let colocRows = [];
+function renderColoc(){
+  const el = document.getElementById('colocList');
+  if(!colocRows.length){ el.innerHTML = '<p class="hint" style="margin:0">Aucune ville : toutes les colocations seront estimées.</p>'; return; }
+  el.innerHTML = `<div class="coloc-row coloc-head"><span>Ville</span><span>€ / chambre / mois</span><span>Source</span><span></span></div>` +
+    colocRows.map((t, i) => `<div class="coloc-row">
+      <input type="text" aria-label="Ville" value="${AxIA.esc(t.ville)}" maxlength="60" oninput="colocRows[${i}].ville=this.value">
+      <input type="number" aria-label="Loyer par chambre à ${AxIA.esc(t.ville)}" value="${t.loyer ?? ''}" min="1" step="10" oninput="colocRows[${i}].loyer=parseFloat(this.value); colocRows[${i}].source='Saisi'; this.closest('.coloc-row').querySelector('.coloc-src').textContent='Saisi'">
+      <span class="coloc-src">${AxIA.esc(t.source || 'Saisi')}</span>
+      <button type="button" class="icon-btn" aria-label="Retirer ${AxIA.esc(t.ville)}" onclick="colocRows.splice(${i},1); renderColoc()">${AxIA.icon('trash')}</button>
+    </div>`).join('');
+}
+function addColocRow(){
+  colocRows.push({ ville: '', loyer: null, source: 'Saisi' });
+  renderColoc();
+  const inputs = document.querySelectorAll('#colocList .coloc-row:last-child input');
+  if(inputs[0]) inputs[0].focus();
+}
+async function saveColoc(){
+  const status = document.getElementById('colocStatus');
+  const rows = colocRows.filter(t => t.ville && t.ville.trim() && t.loyer > 0);
+  status.textContent = 'Enregistrement…';
+  try {
+    const r = await fetch('/api/profil-fiscal', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ loyersColoc: rows }) });
+    const p = await r.json();
+    if(!r.ok) throw new Error(p.details || p.error);
+    colocRows = (p.loyersColoc || []).map(t => ({ ...t }));
+    renderColoc();
+    status.innerHTML = `<span class="pos">${colocRows.length} ville${colocRows.length > 1 ? 's' : ''} enregistrée${colocRows.length > 1 ? 's' : ''}. Les fiches en colocation sont recalculées.</span>`;
+  } catch(err) {
+    status.innerHTML = `<span class="neg">Erreur : ${AxIA.esc(err.message)}</span>`;
+  }
+}
 function showApport(v){
   document.getElementById('apportLine').textContent = v > 0 ? `${String(v).replace('.', ',')} % du coût total (prix + notaire + travaux)` : '0 € (financement à 100 %)';
 }
@@ -75,6 +119,8 @@ async function loadProfil(){
     document.getElementById('dureeTravaux').value = p.dureeAmortTravauxAns;
     document.getElementById('apportPct').value = p.apportPctDefaut ?? 10;
     showApport(p.apportPctDefaut ?? 10);
+    colocRows = (p.loyersColoc || []).map(t => ({ ...t }));
+    renderColoc();
   } catch(err) {
     document.getElementById('profilStatus').innerHTML = '<span class="neg">Impossible de charger le profil.</span>';
   }
